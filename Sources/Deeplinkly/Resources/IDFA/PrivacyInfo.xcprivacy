@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  ADDITIONAL declarations for apps that set DeeplinklyEnableIDFA in their
+	  Info.plist. This file is NOT bundled by the pod: it is a template to merge
+	  into your own app's PrivacyInfo.xcprivacy, alongside the SDK's default
+	  manifest rather than instead of it.
+
+	  Why it is not bundled: Xcode aggregates every bundled privacy manifest
+	  into the containing app's privacy report. If the SDK shipped
+	  NSPrivacyTracking=true, every app embedding it would declare tracking —
+	  including the ones that never enabled IDFA and never prompt for ATT.
+	  Apple requires an ATT prompt to justify a tracking declaration, so that
+	  default would create a review risk for apps that did nothing wrong.
+
+	  If you enable IDFA you must also:
+	    1. Merge the keys below into your app's PrivacyInfo.xcprivacy.
+	    2. Add NSUserTrackingUsageDescription to your Info.plist.
+	    3. Call ATTrackingManager.requestTrackingAuthorization yourself, at a
+	       point in your flow that makes sense. The SDK never prompts — it only
+	       reads the status your prompt produced, and collects the IDFA only
+	       when that status is `authorized`.
+	-->
+	<key>NSPrivacyTracking</key>
+	<true/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array>
+		<string>deeplinkly.com</string>
+	</array>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array>
+		<dict>
+			<!-- idfa, reported only while ATT status is `authorized` -->
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeDeviceID</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeThirdPartyAdvertising</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

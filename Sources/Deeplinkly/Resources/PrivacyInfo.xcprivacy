@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  Attribution is scoped to a single tenant's own links and app, so it is
+	  first-party and does not meet ATT's definition of tracking (linking data
+	  with data from apps or websites owned by other companies).
+
+	  This manifest describes the SDK's DEFAULT configuration, which collects no
+	  IDFA. The SDK never calls requestTrackingAuthorization in any
+	  configuration — it reads the status the host app's own prompt produced.
+
+	  An app that opts into IDFA collection (Info.plist DeeplinklyEnableIDFA)
+	  IS tracking, and must merge the additional declarations in
+	  Resources/IDFA/PrivacyInfo.xcprivacy into its own manifest. That flag is
+	  off by default precisely so this file stays true for everyone else:
+	  Xcode aggregates every bundled manifest into the app's privacy report,
+	  so a tracking declaration here would be made on behalf of every host app
+	  whether or not it prompts.
+	-->
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<!-- Prefs, AttributionStore, RetryQueue, DeepLinkQueue, TrackingPreferences -->
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>CA92.1</string>
+			</array>
+		</dict>
+		<dict>
+			<!--
+			  ProcessInfo.systemUptime, read only to measure elapsed time within
+			  the app: SdkInfo captures it once at initialisation and events
+			  report `_dl_client_elapsed_ms`, the delta since that point.
+
+			  No reading of this API, and nothing derived from one, leaves the
+			  device. The absolute value is never sent, and the `boot_time`
+			  signal that briefly did send it has been removed on both
+			  platforms. 35F9.1 permits exactly this use — "to measure the
+			  amount of time that has elapsed between events that occurred
+			  within the app".
+			-->
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategorySystemBootTime</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>35F9.1</string>
+			</array>
+		</dict>
+		<dict>
+			<!--
+			  DeviceProfile.installedAt reads the creation date of the app's own
+			  Documents directory, which is the closest iOS equivalent to
+			  Android's firstInstallTime. C617.1 covers timestamps of files
+			  created by the app itself.
+			-->
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>C617.1</string>
+			</array>
+		</dict>
+		<!--
+		  No DiskSpace entry: the SDK does not read disk space on iOS at all.
+		  It briefly reported a storage tier, which was removed — every approved
+		  reason for that API carries the clause "information accessed for this
+		  reason, or any derived information, may not be sent off-device", and
+		  reporting it is precisely sending it off-device. Neither Branch nor
+		  Linkrunner collects it either.
+		-->
+	</array>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array>
+		<dict>
+			<!--
+			  deeplinkly_device_id (a per-install UUID in the keychain),
+			  install_instance_id, and idfv. Not the IDFA — see the note at the
+			  top of this file.
+			-->
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeDeviceID</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+		<dict>
+			<!-- custom_user_id, set by the host app via setUserId() -->
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeUserID</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+		<dict>
+			<!-- logEvent() and deep link opens -->
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeProductInteraction</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<dict>
+			<!-- /api/v1/sdk-error reports -->
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeOtherDiagnosticData</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<dict>
+			<!--
+			  Device characteristics reported with enrichment: model, OS and
+			  build version, screen geometry, CPU, memory and storage tiers,
+			  locale and timezone, carrier-free connection type, and the local
+			  IP address. Collected at attribution level `full`; `reduced`
+			  drops all of it, and `minimal` keeps none of it.
+			-->
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeOtherDataTypes</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>
