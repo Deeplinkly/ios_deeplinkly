@@ -5,3 +5,4 @@ Pods/
 *.xcuserstate
 *.xcworkspace/xcuserdata/
 *.xcodeproj/xcuserdata/
+.idea
