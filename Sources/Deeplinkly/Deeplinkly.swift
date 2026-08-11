@@ -78,7 +78,7 @@ public enum Deeplinkly {
         return enabled
     }
 
-    /// The SDK version, e.g. `1.9.0`.
+    /// The SDK version, e.g. `1.0.0`.
     public static var version: String { SdkInfo.version }
 
     /// Starts the SDK, reading `DeeplinklyApiKey` from the app's `Info.plist`.

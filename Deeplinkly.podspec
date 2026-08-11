@@ -1,7 +1,7 @@
 Pod::Spec.new do |s|
   s.name             = 'Deeplinkly'
   s.module_name      = 'Deeplinkly'
-  s.version          = '1.9.0'
+  s.version          = '1.0.0'
   s.summary          = 'Deep linking, deferred deep linking, and attribution for iOS.'
   s.description      = <<-DESC
 Deeplinkly resolves deep links, restores deferred destinations, records

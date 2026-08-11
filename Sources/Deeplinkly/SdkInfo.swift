@@ -5,13 +5,13 @@ import Foundation
 ///
 /// Hand-maintained rather than read from the bundle: `CFBundleShortVersionString`
 /// in a static library resolves to the *host app's* version, not ours. Bump
-/// `version` with pubspec.yaml and the podspec.
+/// `version` with the native podspec and release tag.
 ///
 /// Reported as `sdk_version` and folded into the static-profile stamp, so an SDK
 /// upgrade re-collects the device profile — which is what makes a signal added
 /// in a new release actually get collected on existing installs.
 enum SdkInfo {
-    static let version = "1.9.0"
+    static let version = "1.0.0"
     static let platform = "ios"
 
     /// Monotonic reference captured when the SDK initialised, held in memory only.

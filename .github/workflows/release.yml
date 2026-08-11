@@ -1,0 +1,55 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "[0-9]*.[0-9]*.[0-9]*"
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    environment: release
+    env:
+      COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate tag and package versions
+        run: ruby tool/check_version.rb "${GITHUB_REF_NAME}"
+
+      - name: Validate package manifest
+        run: swift package dump-package > /dev/null
+
+      - name: Run SDK tests
+        run: |
+          set -o pipefail
+          SIMULATOR_ID="$(
+            xcrun simctl list devices available -j |
+              ruby -rjson -e '
+                devices = JSON.parse(STDIN.read).fetch("devices").values.flatten
+                phone = devices.find { |device| device["isAvailable"] && device["name"].start_with?("iPhone") }
+                abort "No available iPhone simulator" unless phone
+                puts phone.fetch("udid")
+              '
+          )"
+          xcodebuild test \
+            -scheme Deeplinkly \
+            -destination "platform=iOS Simulator,id=${SIMULATOR_ID}"
+
+      - name: Validate the tagged CocoaPod
+        run: pod spec lint Deeplinkly.podspec --skip-tests
+
+      - name: Publish to CocoaPods Trunk
+        run: pod trunk push Deeplinkly.podspec --skip-tests
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "${GITHUB_REF_NAME}" > /dev/null 2>&1 || \
+            gh release create "${GITHUB_REF_NAME}" --verify-tag --generate-notes
