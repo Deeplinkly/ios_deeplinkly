@@ -197,10 +197,21 @@ enum NetworkUtils {
         // Falling back to the *requested* click id would report a stale click as
         // a live one, so on a stale response the id has to come from the body
         // (where it is null) and never from what we asked for.
-        let resolvedId: Any =
-            isStale(json: json)
-            ? (json["click_id"] as? String ?? NSNull())
-            : (clickId ?? (json["click_id"] as? String ?? NSNull()))
+        let responseClickId: Any
+        if let value = json["click_id"] as? String {
+            responseClickId = value
+        } else {
+            responseClickId = NSNull()
+        }
+
+        let resolvedId: Any
+        if isStale(json: json) {
+            resolvedId = responseClickId
+        } else if let clickId {
+            resolvedId = clickId
+        } else {
+            resolvedId = responseClickId
+        }
 
         var out: [String: Any] = ["click_id": resolvedId]
         if let params = json["params"] as? [String: Any] {
