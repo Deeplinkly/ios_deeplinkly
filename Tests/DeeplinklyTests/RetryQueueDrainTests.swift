@@ -159,11 +159,17 @@ final class RetryQueueDrainTests: XCTestCase {
         XCTAssertNil(body?["retired_signal"])
     }
 
-    /// Only enrichment is refiltered. An event's payload is a different shape —
-    /// its device state is nested under `device` and was filtered when built —
-    /// so running the flat filter over it would strip `event_name` itself.
-    func testEventsAreNotRefiltered() {
-        store(type: "event", payload: ["event_name": "purchase", "parameters": [:]])
+    /// Event metadata is preserved while its nested device sample is filtered
+    /// against the consent level in force when the retry actually leaves.
+    func testEventDeviceBlockIsRefilteredWithoutStrippingTheEvent() {
+        store(
+            type: "event",
+            payload: [
+                "event_name": "purchase",
+                "parameters": ["sku": "A1"],
+                "device": ["deeplinkly_device_id": "d1", "screen_width": "1170"],
+            ])
+        AttributionLevel.set(.minimal)
 
         drain()
 
@@ -171,6 +177,10 @@ final class RetryQueueDrainTests: XCTestCase {
         XCTAssertEqual(
             body?["event_name"] as? String, "purchase",
             "the enrichment filter was applied to an event and stripped it")
+        XCTAssertEqual((body?["parameters"] as? [String: String])?["sku"], "A1")
+        let device = body?["device"] as? [String: Any]
+        XCTAssertEqual(device?["deeplinkly_device_id"] as? String, "d1")
+        XCTAssertNil(device?["screen_width"])
     }
 
     func testErrorsAreNotRefiltered() {
@@ -222,14 +232,14 @@ final class RetryQueueDrainTests: XCTestCase {
 
     // MARK: - Guards
 
-    func testDrainIsSuppressedWhileTrackingIsDisabled() {
+    func testOptOutPurgesTheQueueWithoutSending() {
         store(type: "enrichment", payload: ["click_id": "c1"])
         TrackingPreferences.setTrackingDisabled(true)
 
         drain()
 
         StubURLProtocol.assertNoRequest(to: DomainConfig.enrich, settle: 0)
-        XCTAssertEqual(RetryQueue.items().count, 1, "the queue drained while opted out")
+        XCTAssertTrue(RetryQueue.items().isEmpty, "opt-out retained a queued report")
     }
 
     func testAnEmptyQueueSendsNothing() {

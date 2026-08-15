@@ -293,6 +293,30 @@ final class DeeplinklyTests: XCTestCase {
         XCTAssertEqual(Deeplinkly.getAttributionLevel(), AttributionLevel.none)
     }
 
+    func testPrivacyResetDeletesLocalDataAndLeavesTrackingDisabled() {
+        let oldId = DeviceIdManager.getOrCreate()
+        Prefs.setCustomUserId("customer-1")
+        UserDefaults.standard.set("{\"click_id\":\"c1\"}", forKey: "initial_attribution")
+        UserDefaults.standard.set("session-1", forKey: "dl_session_id")
+        UserDefaults.standard.set(true, forKey: "deep_link_enriched_click_id=c1")
+        UserDefaults.standard.set(true, forKey: "host_app_enriched")
+        RetryQueue.enqueue(type: "event", payload: ["event_name": "purchase"])
+
+        XCTAssertTrue(Deeplinkly.resetPrivacyData())
+
+        XCTAssertTrue(TrackingPreferences.isTrackingDisabled())
+        XCTAssertNil(Prefs.customUserId())
+        XCTAssertNil(UserDefaults.standard.object(forKey: "initial_attribution"))
+        XCTAssertNil(UserDefaults.standard.object(forKey: "dl_session_id"))
+        XCTAssertNil(
+            UserDefaults.standard.object(forKey: "deep_link_enriched_click_id=c1"))
+        XCTAssertEqual(UserDefaults.standard.bool(forKey: "host_app_enriched"), true)
+        UserDefaults.standard.removeObject(forKey: "host_app_enriched")
+        XCTAssertTrue(RetryQueue.items().isEmpty)
+        XCTAssertNotEqual(oldId, DeviceIdManager.getOrCreate())
+        XCTAssertTrue(TrackingPreferences.isTrackingDisabled())
+    }
+
     func testTheAttributionLevelRoundTrips() {
         for level in AttributionLevel.allCases {
             XCTAssertTrue(Deeplinkly.setAttributionLevel(level))

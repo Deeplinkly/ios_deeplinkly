@@ -18,4 +18,9 @@ enum DeviceIdManager {
 
         return fresh
     }
+
+    @discardableResult
+    static func reset() -> Bool {
+        Keychain.delete(key)
+    }
 }

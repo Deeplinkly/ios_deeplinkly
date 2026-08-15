@@ -16,7 +16,7 @@ For a package manifest:
 dependencies: [
     .package(
         url: "https://github.com/Deeplinkly/ios_deeplinkly.git",
-        from: "1.0.0"
+        from: "1.0.1"
     )
 ]
 ```
@@ -117,7 +117,6 @@ final class DeepLinkRouter: DeeplinklyDeepLinkListener {
     func onDeepLink(_ payload: [String: Any]) {
         let clickId = payload["click_id"] as? String
         let params = payload["params"] as? [String: Any] ?? [:]
-        let probability = payload["probability"] as? NSNumber
 
         // Read your own routing values from params.
         if params["screen"] as? String == "product",
@@ -138,7 +137,6 @@ The delivery envelope has these fields:
 | --- | --- | --- |
 | `click_id` | `String` or `NSNull` | Resolved click identifier, when one exists |
 | `params` | `[String: Any]` | Link metadata and query parameters used for in-app routing |
-| `probability` | Number, optional | Attribution probability returned by the resolver |
 
 `onDeepLink(_:)` always runs on the main thread. The SDK buffers a resolved
 link until a listener is attached. Calling `handleLink(_:)` twice with the same

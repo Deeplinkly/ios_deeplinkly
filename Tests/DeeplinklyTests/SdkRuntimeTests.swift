@@ -83,12 +83,10 @@ final class SdkRuntimeTests: XCTestCase {
         SdkRuntime.deliverDeepLink([
             "click_id": "c1",
             "params": ["utm_source": "news", "count": 3],
-            "probability": 0.87,
         ])
 
         let payload = listener.received.first
         XCTAssertEqual(payload?["click_id"] as? String, "c1")
-        XCTAssertEqual(payload?["probability"] as? Double, 0.87)
         let params = payload?["params"] as? [String: Any]
         XCTAssertEqual(params?["utm_source"] as? String, "news")
         XCTAssertEqual(params?["count"] as? Int, 3)

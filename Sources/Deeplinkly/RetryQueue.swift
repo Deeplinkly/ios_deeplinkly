@@ -14,6 +14,10 @@ enum RetryQueue {
 
     // Enqueue payload for retry
     static func enqueue(type: String, payload: [String: Any]) {
+        guard !TrackingPreferences.isTrackingDisabled() else {
+            Logger.d("RetryQueue: dropping \(type) while tracking is disabled")
+            return
+        }
         var queue = items()
         let item: [String: Any] = [
             "type": type,
@@ -26,6 +30,9 @@ enum RetryQueue {
         {
             queue.append(jsonString)
             if queue.count > maxCount { queue.removeFirst() }
+            // Close the opt-out race: consent may have changed while this
+            // payload was being serialized.
+            guard !TrackingPreferences.isTrackingDisabled() else { return }
             UserDefaults.standard.set(queue, forKey: key)
         }
     }
@@ -58,6 +65,11 @@ enum RetryQueue {
         }
     }
 
+    static func clear() {
+        UserDefaults.standard.removeObject(forKey: key)
+        UserDefaults.standard.removeObject(forKey: legacyKey)
+    }
+
     /// Re-applies the current attribution level to a payload built earlier.
     ///
     /// Retry items are stored fully assembled and already filtered, so without
@@ -68,11 +80,34 @@ enum RetryQueue {
         return payload.filter { SignalCatalogue.allows($0.key, at: level) }
     }
 
+    /// Re-filters the nested device sample without touching customer event
+    /// data, which is outside the attribution signal catalogue.
+    static func refilterEvent(_ payload: [String: Any]) -> [String: Any] {
+        var out = payload
+        guard let device = payload["device"] as? [String: Any] else { return out }
+        let filtered = refilter(device)
+        if filtered.isEmpty {
+            out.removeValue(forKey: "device")
+        } else {
+            out["device"] = filtered
+        }
+        return out
+    }
+
     // Retry all items in queue
     static func retryAll(apiKey: String) {
-        guard !TrackingPreferences.isTrackingDisabled() else { return }
+        guard !TrackingPreferences.isTrackingDisabled() else {
+            clear()
+            return
+        }
 
         for s in items() {
+            // Consent can change during a drain. Never dispatch the next item
+            // under a state that no longer permits reporting.
+            guard !TrackingPreferences.isTrackingDisabled() else {
+                clear()
+                return
+            }
             do {
                 guard let data = s.data(using: .utf8),
                     let obj = try JSONSerialization.jsonObject(with: data, options: [])
@@ -120,7 +155,8 @@ enum RetryQueue {
                 case "error":
                     try NetworkUtils.sendErrorNow(payload: payload, apiKey: apiKey)
                 case "event":
-                    try NetworkUtils.sendEventNow(payload: payload, apiKey: apiKey)
+                    try NetworkUtils.sendEventNow(
+                        payload: refilterEvent(payload), apiKey: apiKey)
                 default:
                     Logger.w("RetryQueue: Unknown type \(type)")
                 }

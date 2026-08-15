@@ -47,6 +47,20 @@ final class NetworkRequestTests: XCTestCase {
         XCTAssertNil(request?.headers["X-Deeplinkly-Custom-User-Id"])
     }
 
+    func testFunctionalRequestOmitsIdentityHeadersWhileTrackingIsDisabled() {
+        StubURLProtocol.stub(DomainConfig.resolveClick, .ok())
+        Prefs.setCustomUserId("user-1")
+        _ = DeviceIdManager.getOrCreate()
+        TrackingPreferences.setTrackingDisabled(true)
+
+        resolve(clickId: "c1")
+
+        let request = StubURLProtocol.waitForRequest(to: DomainConfig.resolveClick).first
+        XCTAssertEqual(request?.headers["Authorization"], "Bearer test-key")
+        XCTAssertNil(request?.headers["X-Deeplinkly-Custom-User-Id"])
+        XCTAssertNil(request?.headers["X-Deeplinkly-User-Id"])
+    }
+
     func testPostsCarryAJsonContentType() {
         StubURLProtocol.stub(DomainConfig.resolveClick, .ok())
 

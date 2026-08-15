@@ -357,6 +357,18 @@ public enum Deeplinkly {
         TrackingPreferences.setTrackingDisabled(!enabled)
     }
 
+    /// Deletes Deeplinkly's locally stored identifiers, attribution, device
+    /// profile, event/session state, pasteboard state, and pending queues.
+    ///
+    /// Tracking remains disabled after the reset so a deletion request cannot
+    /// immediately mint and report a replacement identity. Call
+    /// `setTrackingEnabled(true)` explicitly if the user later opts back in.
+    @discardableResult
+    public static func resetPrivacyData() -> Bool {
+        PrivacyData.reset()
+        return true
+    }
+
     /// Whether reporting is currently on.
     public static func isTrackingEnabled() -> Bool {
         !TrackingPreferences.isTrackingDisabled()

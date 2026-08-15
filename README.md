@@ -35,7 +35,7 @@ Select the `Deeplinkly` product and add it to your app target. For a
 dependencies: [
     .package(
         url: "https://github.com/Deeplinkly/ios_deeplinkly.git",
-        from: "1.0.0"
+        from: "1.0.1"
     )
 ]
 ```
@@ -235,10 +235,22 @@ Use the tracking switch for a complete reporting opt-out:
 Deeplinkly.setTrackingEnabled(false)
 ```
 
-While disabled, the SDK sends no enrichment, events, or SDK error reports and
-skips its automatic pasteboard read. Deep links still resolve and deliver.
-The setting persists across launches and takes precedence over the selected
-attribution level.
+While disabled, the SDK sends no enrichment, events, or SDK error reports,
+deletes pending reporting retries, and skips its automatic pasteboard read.
+Deep links still resolve and deliver, but functional requests omit the stable
+Deeplinkly ID and custom user ID. The setting persists across launches and
+takes precedence over the selected attribution level.
+
+For a deletion request:
+
+```swift
+Deeplinkly.resetPrivacyData()
+```
+
+This deletes the locally stored Deeplinkly ID, custom user ID, attribution,
+cached device profile, session/event and pasteboard state, and pending queues.
+It leaves tracking disabled so deletion cannot immediately create and report a
+replacement identity.
 
 ## Deferred deep linking
 

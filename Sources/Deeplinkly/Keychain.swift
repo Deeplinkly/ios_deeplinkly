@@ -111,7 +111,17 @@ enum Keychain {
         }
         testingLock.unlock()
 
-        let status = SecItemDelete(baseQuery(for: key) as CFDictionary)
-        return status == errSecSuccess
+        let currentStatus = SecItemDelete(baseQuery(for: key) as CFDictionary)
+
+        // Releases before kSecAttrService was introduced stored the device ID
+        // under the account name alone. Delete that legacy item as well: a
+        // privacy reset must work even when tracking was disabled before the
+        // first read had a chance to migrate it.
+        let legacyQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: key,
+        ]
+        let legacyStatus = SecItemDelete(legacyQuery as CFDictionary)
+        return currentStatus == errSecSuccess || legacyStatus == errSecSuccess
     }
 }

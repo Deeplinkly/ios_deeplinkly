@@ -68,6 +68,14 @@ enum SdkRuntime {
         Logger.d("Deep link listener detached")
     }
 
+    /// Drops link payloads buffered before a listener attached. Used by the
+    /// public privacy reset so deleted link context cannot be delivered later.
+    static func clearPending() {
+        lock.lock()
+        pending.removeAll()
+        lock.unlock()
+    }
+
     /// Delivers a resolved link, or buffers it until a listener attaches.
     ///
     /// - Parameter onDelivered: called once the payload has reached the

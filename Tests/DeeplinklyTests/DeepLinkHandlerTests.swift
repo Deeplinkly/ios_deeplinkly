@@ -117,7 +117,6 @@ final class DeepLinkHandlerTests: XCTestCase {
             .ok([
                 "click_id": "c1",
                 "params": ["utm_source": "news", "screen": "profile"],
-                "probability": 0.9,
             ]))
 
         DeepLinkHandler.handle(url: linkURL(), apiKey: "test-key")
@@ -125,7 +124,6 @@ final class DeepLinkHandlerTests: XCTestCase {
         waitUntil("delivery") { self.listener.count == 1 }
         let payload = listener.received.first
         XCTAssertEqual(payload?["click_id"] as? String, "c1")
-        XCTAssertEqual(payload?["probability"] as? Double, 0.9)
         XCTAssertEqual(
             (payload?["params"] as? [String: Any])?["utm_source"] as? String, "news")
     }

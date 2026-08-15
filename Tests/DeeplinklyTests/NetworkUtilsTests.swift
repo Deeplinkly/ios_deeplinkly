@@ -37,12 +37,11 @@ final class NetworkUtilsTests: XCTestCase {
 
     func testExtractParamsBuildsTheEnvelope() {
         let out = NetworkUtils.extractParams(
-            json: ["click_id": "server-1", "params": ["utm_source": "news"], "probability": 0.87],
+            json: ["click_id": "server-1", "params": ["utm_source": "news"]],
             clickId: "server-1")
 
         XCTAssertEqual(out["click_id"] as? String, "server-1")
         XCTAssertEqual((out["params"] as? [String: Any])?["utm_source"] as? String, "news")
-        XCTAssertEqual(out["probability"] as? Double, 0.87)
     }
 
     /// The requested id wins over the body's, so a probabilistic match does not
@@ -72,10 +71,9 @@ final class NetworkUtilsTests: XCTestCase {
     }
 
     /// Absent keys are omitted rather than sent as null — Dart reads presence.
-    func testExtractParamsOmitsAbsentParamsAndProbability() {
+    func testExtractParamsOmitsAbsentParams() {
         let out = NetworkUtils.extractParams(json: ["click_id": "c1"], clickId: "c1")
         XCTAssertNil(out["params"])
-        XCTAssertNil(out["probability"])
         XCTAssertEqual(out.count, 1)
     }
 

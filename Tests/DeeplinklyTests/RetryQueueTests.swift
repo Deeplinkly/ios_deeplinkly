@@ -80,6 +80,14 @@ final class RetryQueueTests: XCTestCase {
         XCTAssertEqual(payload?["count"] as? Int, 3)
     }
 
+    func testEnqueueIsSuppressedWhileTrackingIsDisabled() {
+        TrackingPreferences.setTrackingDisabled(true)
+
+        RetryQueue.enqueue(type: "event", payload: ["name": "purchase"])
+
+        XCTAssertTrue(RetryQueue.items().isEmpty)
+    }
+
     // MARK: - remove
 
     func testRemoveDeletesTheMatchingItem() {
@@ -154,17 +162,62 @@ final class RetryQueueTests: XCTestCase {
         XCTAssertEqual(Set(out.keys), ["click_id"])
     }
 
+    func testQueuedEventDeviceBlockIsRefilteredWithoutChangingEventData() {
+        let event: [String: Any] = [
+            "event_name": "purchase",
+            "parameters": ["sku": "A1"],
+            "device": [
+                "deeplinkly_device_id": "device-1",
+                "click_id": "click-1",
+                "locale": "en-GB",
+                "screen_width": "1170",
+            ],
+        ]
+        AttributionLevel.set(.minimal)
+
+        let out = RetryQueue.refilterEvent(event)
+
+        XCTAssertEqual(out["event_name"] as? String, "purchase")
+        XCTAssertEqual((out["parameters"] as? [String: String])?["sku"], "A1")
+        XCTAssertEqual(
+            Set((out["device"] as? [String: Any])?.keys.map { $0 } ?? []),
+            ["deeplinkly_device_id", "click_id"])
+    }
+
+    func testQueuedEventLosesItsDeviceBlockAtNone() {
+        let event: [String: Any] = [
+            "event_name": "purchase",
+            "device": ["deeplinkly_device_id": "device-1"],
+        ]
+        AttributionLevel.set(.none)
+
+        let out = RetryQueue.refilterEvent(event)
+
+        XCTAssertEqual(out["event_name"] as? String, "purchase")
+        XCTAssertNil(out["device"])
+    }
+
     // MARK: - retryAll
 
-    /// The tracking switch short-circuits before anything leaves the device,
-    /// and leaves the queue untouched so it can drain if tracking is re-enabled.
-    func testRetryAllIsSuppressedWhileTrackingIsDisabled() {
+    /// Opt-out deletes reports queued under an earlier consent state rather
+    /// than retaining them for a surprise replay after opt-in.
+    func testDisablingTrackingPurgesTheRetryQueue() {
         RetryQueue.enqueue(type: "enrichment", payload: ["click_id": "c1"])
+        XCTAssertEqual(RetryQueue.items().count, 1)
+
         TrackingPreferences.setTrackingDisabled(true)
+
+        XCTAssertTrue(RetryQueue.items().isEmpty, "opt-out retained a queued report")
+    }
+
+    func testRetryAllPurgesALegacyQueueWhileTrackingIsDisabled() {
+        TrackingPreferences.setTrackingDisabled(true)
+        UserDefaults.standard.set(["legacy"], forKey: "sdk_retry_queue")
 
         RetryQueue.retryAll(apiKey: "test-key")
 
-        XCTAssertEqual(RetryQueue.items().count, 1, "the queue was drained while opted out")
+        XCTAssertNil(UserDefaults.standard.object(forKey: "sdk_retry_queue"))
+        XCTAssertTrue(RetryQueue.items().isEmpty)
     }
 
     /// Every `retryAll` case exercised below is one that provably issues no

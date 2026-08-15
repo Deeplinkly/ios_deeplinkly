@@ -58,11 +58,14 @@ enum NetworkUtils {
         req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         req.setValue("application/json", forHTTPHeaderField: "Accept")
 
-        // IDs on every call (matches Django links.views enrich / resolve)
-        if let custom = Prefs.customUserId() {
-            req.setValue(custom, forHTTPHeaderField: "X-Deeplinkly-Custom-User-Id")
+        // Functional resolve/generate calls remain available while reporting
+        // is off, but must not silently carry stable tracking identifiers.
+        if !TrackingPreferences.isTrackingDisabled() {
+            if let custom = Prefs.customUserId() {
+                req.setValue(custom, forHTTPHeaderField: "X-Deeplinkly-Custom-User-Id")
+            }
+            req.setValue(DeviceIdManager.getOrCreate(), forHTTPHeaderField: "X-Deeplinkly-User-Id")
         }
-        req.setValue(DeviceIdManager.getOrCreate(), forHTTPHeaderField: "X-Deeplinkly-User-Id")
 
         if let body = body {
             req.httpBody = try? JSONSerialization.data(withJSONObject: body)
@@ -216,9 +219,6 @@ enum NetworkUtils {
         var out: [String: Any] = ["click_id": resolvedId]
         if let params = json["params"] as? [String: Any] {
             out["params"] = params
-        }
-        if let prob = json["probability"] {
-            out["probability"] = prob
         }
         return out
     }
