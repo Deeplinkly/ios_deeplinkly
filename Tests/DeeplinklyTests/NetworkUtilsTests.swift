@@ -44,8 +44,8 @@ final class NetworkUtilsTests: XCTestCase {
         XCTAssertEqual((out["params"] as? [String: Any])?["utm_source"] as? String, "news")
     }
 
-    /// The requested id wins over the body's, so a probabilistic match does not
-    /// rewrite the id the app asked about.
+    /// The requested id wins over a conflicting response value, preserving the
+    /// deterministic identity the app asked to resolve.
     func testExtractParamsPrefersTheRequestedClickId() {
         let out = NetworkUtils.extractParams(
             json: ["click_id": "server-1"], clickId: "requested-1")

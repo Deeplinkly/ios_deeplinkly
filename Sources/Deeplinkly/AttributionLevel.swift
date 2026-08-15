@@ -17,10 +17,10 @@ public enum AttributionLevel: String, CaseIterable {
     /// Everything the SDK collects. The default, and the pre-1.9.0 behaviour.
     case full
 
-    /// Drops every signal classified `.full` — the high-entropy hardware
-    /// signals that only exist to support probabilistic matching (screen
-    /// geometry, core count, model). Keeps the coarse context a marketer
-    /// actually reads: locale, timezone, OS, app version.
+    /// Drops every signal classified `.full` — high-entropy hardware/reporting
+    /// values such as screen geometry, core count, and model. Keeps the coarse
+    /// context a marketer actually reads: locale, timezone, OS, app version.
+    /// Attribution remains deterministic at every level.
     case reduced
 
     /// Only signals classified `.minimal`: who the install is, which app build,

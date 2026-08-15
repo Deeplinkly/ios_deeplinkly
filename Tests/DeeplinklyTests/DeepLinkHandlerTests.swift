@@ -257,7 +257,11 @@ final class DeepLinkHandlerTests: XCTestCase {
     /// property of the test, not of the code, and it made this flaky roughly
     /// two runs in three.
     func testTheFallbackArrivesOnlyWhenTheRetryBudgetIsSpent() {
-        StubURLProtocol.stub(DomainConfig.resolveClick, .offline)
+        // Use an HTTP transient failure here. The hosted simulator can delay
+        // CFNetwork's synthetic offline callback beyond the test deadline;
+        // 503 exercises the same non-terminal retry branch deterministically.
+        // Dedicated tests above retain coverage of the offline transport path.
+        StubURLProtocol.stub(DomainConfig.resolveClick, .transient(503))
 
         let pending = DeepLinkQueue.PendingResolve(
             clickId: "c1", code: nil, uri: linkURL().absoluteString, source: "deep_link")

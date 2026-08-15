@@ -84,8 +84,8 @@ final class SignalCatalogueTests: XCTestCase {
 
     // MARK: - The specific classifications that carry meaning
 
-    /// The high-entropy hardware signals exist only for probabilistic matching
-    /// and must be the first thing a downgrade drops.
+    /// High-entropy hardware/reporting signals must be the first thing a
+    /// privacy-tier downgrade drops.
     func testHighEntropyHardwareIsFullOnly() {
         let fullOnly = [
             "screen_width", "screen_height", "screen_dpi", "pixel_ratio",
