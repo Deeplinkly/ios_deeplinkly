@@ -25,6 +25,21 @@ enum DeeplinklyEvent {
     /// and smuggle parameters past the count limit.
     static let reservedParamPrefix = "_dl_"
 
+    /// Keys any event may carry that mean something specific to us.
+    ///
+    /// Not `_dl_`-prefixed, so they cost a parameter and the tenant sees them in
+    /// their dashboard, which is the point — the amount of a sale is the first
+    /// thing someone reads off a purchase event. What the reservation buys is a
+    /// *shape*: the backend lifts these two into typed columns, and Meta's
+    /// `custom_data.value`/`currency` and Google's conversion value both want a
+    /// number and a currency code rather than whatever a caller felt like.
+    ///
+    /// Checked here rather than only in `DeeplinklyPurchase` because `logEvent`
+    /// is public and untyped: a caller who spells a purchase out by hand gets
+    /// the same answer as one who uses the wrapper.
+    static let valueParam = "value"
+    static let currencyParam = "currency"
+
     /// Why an event was rejected. Surfaced only in debug logs.
     enum Rejection: Equatable {
         case emptyName
@@ -70,6 +85,10 @@ enum DeeplinklyEvent {
                 return .badKey(
                     key: rawKey, why: "uses the reserved '\(reservedParamPrefix)' prefix")
             }
+            if let rejection = validateReserved(key: key, value: value, rawKey: rawKey) {
+                return rejection
+            }
+            if key == valueParam || key == currencyParam { continue }
             if let rejection = validate(value: value, forKey: rawKey) { return rejection }
         }
         return nil
@@ -78,6 +97,40 @@ enum DeeplinklyEvent {
     /// The trimmed name actually sent, matching what Dart used to normalise.
     static func normalizeName(_ name: String) -> String {
         name.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// The shape checks for `value` and `currency`. Nil for every other key.
+    private static func validateReserved(
+        key: String, value: Any, rawKey: String
+    ) -> Rejection? {
+        if key == valueParam {
+            // A Swift Bool bridges to NSNumber, so it has to be excluded before
+            // the numeric check or `value: true` would be accepted as 1.
+            guard let number = value as? NSNumber, !(value is Bool),
+                CFGetTypeID(number) != CFBooleanGetTypeID()
+            else {
+                return .badValue(key: rawKey, why: "must be a number")
+            }
+            let amount = number.doubleValue
+            if amount.isNaN || amount.isInfinite {
+                return .badValue(key: rawKey, why: "must be finite")
+            }
+            if amount < 0 {
+                return .badValue(key: rawKey, why: "must not be negative")
+            }
+            return nil
+        }
+        if key == currencyParam {
+            guard let code = value as? String else {
+                return .badValue(key: rawKey, why: "must be a string")
+            }
+            let trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard trimmed.count == 3, trimmed.allSatisfy({ $0.isASCII && $0.isLetter }) else {
+                return .badValue(key: rawKey, why: "must be a 3-letter ISO-4217 code")
+            }
+            return nil
+        }
+        return nil
     }
 
     private static func validate(value: Any, forKey rawKey: String) -> Rejection? {

@@ -241,4 +241,58 @@ final class DeeplinklyEventTests: XCTestCase {
         XCTAssertEqual(DeeplinklyEvent.maxParamValueLength, 256)
         XCTAssertEqual(DeeplinklyEvent.reservedParamPrefix, "_dl_")
     }
+
+    // MARK: - Reserved revenue keys
+
+    /// `value` and `currency` are checked on the plain `logEvent` path, not only
+    /// inside `DeeplinklyPurchase`. `logEvent` is public and untyped, so a
+    /// caller who spells a purchase out by hand has to get the same answer as
+    /// one who used the wrapper — otherwise the backend's typed columns fill
+    /// with whatever the hand-rolled path felt like sending.
+    func testAcceptsANumericValueAndAThreeLetterCurrency() {
+        XCTAssertNil(
+            DeeplinklyEvent.validate(
+                name: "purchase", parameters: ["value": 49.99, "currency": "USD"]))
+        XCTAssertNil(
+            DeeplinklyEvent.validate(
+                name: "purchase", parameters: ["value": 49, "currency": "eur"]))
+    }
+
+    func testRejectsAValueThatIsNotANumber() {
+        XCTAssertNotNil(
+            DeeplinklyEvent.validate(name: "purchase", parameters: ["value": "49.99"]))
+    }
+
+    /// Bool bridges to NSNumber on this platform, so `true` would otherwise be
+    /// accepted as a sale worth 1.
+    func testRejectsABooleanValue() {
+        XCTAssertNotNil(
+            DeeplinklyEvent.validate(name: "purchase", parameters: ["value": true]))
+    }
+
+    func testRejectsANegativeOrNonFiniteValue() {
+        XCTAssertNotNil(
+            DeeplinklyEvent.validate(name: "purchase", parameters: ["value": -1.0]))
+        XCTAssertNotNil(
+            DeeplinklyEvent.validate(name: "purchase", parameters: ["value": Double.nan]))
+        XCTAssertNotNil(
+            DeeplinklyEvent.validate(
+                name: "purchase", parameters: ["value": Double.infinity]))
+    }
+
+    func testRejectsACurrencyThatIsNotAnISO4217Shape() {
+        XCTAssertNotNil(
+            DeeplinklyEvent.validate(name: "purchase", parameters: ["currency": "dollars"]))
+        XCTAssertNotNil(
+            DeeplinklyEvent.validate(name: "purchase", parameters: ["currency": 840]))
+    }
+
+    /// They are ordinary parameters otherwise: no `_dl_` exemption.
+    func testTheRevenueKeysStillCountAgainstTheParameterBudget() {
+        var params: [String: Any] = [:]
+        for i in 1...24 { params["k\(i)"] = "v" }
+        params["value"] = 1.0
+        params["currency"] = "USD"
+        XCTAssertNotNil(DeeplinklyEvent.validate(name: "purchase", parameters: params))
+    }
 }

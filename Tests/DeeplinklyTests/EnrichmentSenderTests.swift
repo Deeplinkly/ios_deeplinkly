@@ -254,4 +254,84 @@ final class EnrichmentSenderTests: XCTestCase {
                 key.contains("-"), "latch key looks hash-derived and will not survive a relaunch")
         }
     }
+
+    // MARK: - User data
+
+    /// The whole point of the `user` scope: what the app told us about the
+    /// person rides along on the enrichment, so a conversion forwarded later can
+    /// be matched at Meta or Google without the event itself having to carry it.
+    func testUserDataRidesAlongOnThePayload() {
+        UserDataStore.merge([
+            DeeplinklyUserData.keyEmail: "ada@example.com",
+            DeeplinklyUserData.keyCountry: "GB",
+        ])
+
+        send(["click_id": "c1"])
+
+        let body = waitForEnrichment().first?.body
+        XCTAssertEqual(body?[DeeplinklyUserData.keyEmail] as? String, "ada@example.com")
+        XCTAssertEqual(body?[DeeplinklyUserData.keyCountry] as? String, "GB")
+    }
+
+    /// Empty is a value here, not an absence. `UserDataStore.clear` tombstones
+    /// each set field to "" and the backend reads that as "erase this column"; a
+    /// filter that dropped empties on the way out would turn a deletion into a
+    /// no-op without anyone noticing.
+    func testATombstonedFieldIsSentAsAnEmptyValue() {
+        UserDataStore.merge([DeeplinklyUserData.keyEmail: "ada@example.com"])
+        UserDataStore.clear()
+
+        send(["click_id": "c1"])
+
+        let body = waitForEnrichment().first?.body
+        XCTAssertEqual(body?[DeeplinklyUserData.keyEmail] as? String, "")
+    }
+
+    /// The latch is keyed on what is being reported. For this source that is the
+    /// user data itself, so adding an address to an email already sent — the
+    /// ordinary second call — must not collapse into the first.
+    func testASecondUserDataReportWithDifferentFieldsIsNotDeduped() {
+        UserDataStore.merge([DeeplinklyUserData.keyEmail: "ada@example.com"])
+        send(source: EnrichmentSender.userDataSource, force: true)
+        _ = waitForEnrichment(count: 1)
+
+        UserDataStore.merge([DeeplinklyUserData.keyCity: "London"])
+        send(source: EnrichmentSender.userDataSource, force: true)
+
+        let bodies = waitForEnrichment(count: 2)
+        XCTAssertEqual(bodies.count, 2)
+        XCTAssertEqual(bodies[1].body?[DeeplinklyUserData.keyCity] as? String, "London")
+    }
+
+    /// A dedupe key becomes the name of a `UserDefaults` entry, and an email
+    /// address written into one would sit somewhere neither `clearUserData` nor
+    /// the tombstone can reach — and outside `PrivacyData`'s inventory besides.
+    func testTheDedupeKeyDoesNotContainTheUserDataItself() {
+        let key = EnrichmentSender.dedupeKey(
+            for: [DeeplinklyUserData.keyEmail: "ada@example.com"],
+            source: EnrichmentSender.userDataSource)
+        XCTAssertFalse(key.contains("ada@example.com"))
+    }
+
+    /// Stable across launches, and identical to the Kotlin implementation —
+    /// which is the property `hashValue` does not have.
+    func testTheDigestIsStableForAGivenInput() {
+        XCTAssertEqual(
+            EnrichmentSender.stableDigest("user_email=ada@example.com"),
+            EnrichmentSender.stableDigest("user_email=ada@example.com"))
+        XCTAssertNotEqual(
+            EnrichmentSender.stableDigest("user_email=ada@example.com"),
+            EnrichmentSender.stableDigest("user_email=grace@example.com"))
+    }
+
+    /// Other sources are unaffected: every enrichment now carries user data, and
+    /// folding it into their keys too would re-send a deep-link report every
+    /// time an unrelated field changed.
+    func testUserDataDoesNotChangeTheDedupeKeyOfOtherSources() {
+        let without = EnrichmentSender.dedupeKey(for: ["click_id": "c1"], source: "deep_link")
+        let with = EnrichmentSender.dedupeKey(
+            for: ["click_id": "c1", DeeplinklyUserData.keyEmail: "ada@example.com"],
+            source: "deep_link")
+        XCTAssertEqual(without, with)
+    }
 }

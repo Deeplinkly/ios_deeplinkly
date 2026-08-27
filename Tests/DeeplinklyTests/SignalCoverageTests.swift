@@ -28,11 +28,16 @@ final class SignalCoverageTests: XCTestCase {
     private let assembledElsewhere: Set<String> = [
         // EnrichmentSender
         "custom_user_id", "collected_at", "attribution_level",
+        // EnrichmentSender, out of UserDataStore — supplied by the host app
+        // rather than read off the device, so no collector produces them.
+        "user_email", "user_phone", "user_first_name", "user_last_name",
+        "user_date_of_birth", "user_gender", "user_street", "user_city",
+        "user_state", "user_zip", "user_country",
         // DeepLinkHandler's attribution map
         "source", "click_id", "code", "ios_reported_at",
         // NetworkUtils.attributionQuery, off the link's own query string
         "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
-        "gclid", "fbclid", "ttclid",
+        "gclid", "fbclid", "ttclid", "gbraid", "wbraid",
     ]
 
     /// Signals that are legitimately absent on a simulator or on a device that
@@ -128,6 +133,23 @@ final class SignalCoverageTests: XCTestCase {
         XCTAssertEqual(
             expected.subtracting(signals.keys), [],
             "classified dynamicSignal but not produced by DynamicSignals")
+    }
+
+    /// Nothing the device knows about itself may be classified `user`.
+    ///
+    /// The scope is what keeps personal data off the pending-resolve queue
+    /// (`DeepLinkQueue` queues `identity` keys and replays them), so a device
+    /// signal misfiled here would quietly stop being queued, and a personal
+    /// field misfiled as `identity` would start being written to disk with a
+    /// deferred link and replayed days later.
+    func testUserScopedSignalsComeFromNeitherCollector() {
+        let profile = DeviceProfile.current()
+        var collected = Set(profile.keys)
+        collected.formUnion(DynamicSignals.collect(staticProfile: profile).keys)
+
+        XCTAssertEqual(
+            SignalCatalogue.keys(for: .user).intersection(collected), [],
+            "a user-scoped signal is being collected from the device")
     }
 
     /// The two collectors must not both claim a key — the merge in

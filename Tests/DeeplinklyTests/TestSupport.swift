@@ -30,6 +30,8 @@ enum DeeplinklyTestSupport {
         "tracking_disabled",
         // Prefs
         "custom_user_id",
+        // UserDataStore
+        UserDataStore.storageKey,
         // AttributionStore
         "initial_attribution",
         // SessionManager
