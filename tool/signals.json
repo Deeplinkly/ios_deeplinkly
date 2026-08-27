@@ -17,8 +17,15 @@
     "scope = where the value comes from and where it is stored.",
     "        'static'   collected once per device, cached, re-collected on stamp change.",
     "        'dynamic'  collected fresh at send time; never persisted in a queue.",
-    "        'identity' names the link/user being reported on, not the device.",
+    "        'identity' names the link being reported on, not the device.",
     "                   Never routed into the dynamic sample table.",
+    "        'user'     what the host app told us about the person, via",
+    "                   setUserData()/setUserId(). Stored on the user row like",
+    "                   'identity' is, but classified apart from it: identity",
+    "                   keys are queued alongside a pending resolve and replayed",
+    "                   when it retries, and personal data must never ride that",
+    "                   path. Deriving the queue's key set from the scope is what",
+    "                   keeps that true without a hand-maintained exclusion list.",
     "",
     "platforms = omit for both. Present only to keep the generated tables honest.",
     "",
@@ -27,7 +34,7 @@
     "collected on devices whose app version did not change."
   ],
 
-  "catalogue_version": 8,
+  "catalogue_version": 9,
 
   "signals": {
     "deeplinkly_device_id":  { "tier": "minimal", "scope": "static",   "type": "string" },
@@ -116,7 +123,6 @@
     "local_ip":              { "tier": "full",    "scope": "dynamic",  "type": "string",
                                "max_len": 64 },
 
-    "custom_user_id":        { "tier": "minimal", "scope": "identity", "type": "string" },
     "click_id":              { "tier": "minimal", "scope": "identity", "type": "string" },
     "code":                  { "tier": "minimal", "scope": "identity", "type": "string" },
     "source":                { "tier": "minimal", "scope": "identity", "type": "string" },
@@ -131,6 +137,30 @@
     "fbclid":                { "tier": "reduced", "scope": "identity", "type": "string" },
     "ttclid":                { "tier": "reduced", "scope": "identity", "type": "string" },
     "gbraid":                { "tier": "reduced", "scope": "identity", "type": "string" },
-    "wbraid":                { "tier": "reduced", "scope": "identity", "type": "string" }
+    "wbraid":                { "tier": "reduced", "scope": "identity", "type": "string" },
+
+    "custom_user_id":        { "tier": "minimal", "scope": "user",     "type": "string" },
+    "user_email":            { "tier": "minimal", "scope": "user",     "type": "string",
+                               "max_len": 320 },
+    "user_phone":            { "tier": "minimal", "scope": "user",     "type": "string",
+                               "max_len": 32 },
+    "user_first_name":       { "tier": "minimal", "scope": "user",     "type": "string",
+                               "max_len": 128 },
+    "user_last_name":        { "tier": "minimal", "scope": "user",     "type": "string",
+                               "max_len": 128 },
+    "user_date_of_birth":    { "tier": "minimal", "scope": "user",     "type": "string",
+                               "max_len": 10 },
+    "user_gender":           { "tier": "minimal", "scope": "user",     "type": "string",
+                               "max_len": 1 },
+    "user_street":           { "tier": "minimal", "scope": "user",     "type": "string",
+                               "max_len": 256 },
+    "user_city":             { "tier": "minimal", "scope": "user",     "type": "string",
+                               "max_len": 128 },
+    "user_state":            { "tier": "minimal", "scope": "user",     "type": "string",
+                               "max_len": 128 },
+    "user_zip":              { "tier": "minimal", "scope": "user",     "type": "string",
+                               "max_len": 32 },
+    "user_country":          { "tier": "minimal", "scope": "user",     "type": "string",
+                               "max_len": 2 }
   }
 }

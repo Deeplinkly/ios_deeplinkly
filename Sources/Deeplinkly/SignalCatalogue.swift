@@ -19,8 +19,10 @@ enum SignalScope {
     case staticProfile
     /// Collected fresh at send time. Never persisted in a queue.
     case dynamicSignal
-    /// Names the link or user being reported on, not the device.
+    /// Names the link being reported on, not the device.
     case identity
+    /// What the host app told us about the person using it.
+    case user
 }
 
 struct SignalSpec {
@@ -36,7 +38,7 @@ struct SignalSpec {
 /// rather than maintained by hand.
 enum SignalCatalogue {
     /// Part of the static-profile stamp; bumping it forces a re-collect.
-    static let version = 8
+    static let version = 9
 
     static let specs: [String: SignalSpec] = [
         "app_build_number": SignalSpec(tier: .minimal, scope: .staticProfile),
@@ -50,7 +52,7 @@ enum SignalCatalogue {
         "collected_at": SignalSpec(tier: .minimal, scope: .dynamicSignal),
         "connection_type": SignalSpec(tier: .reduced, scope: .dynamicSignal),
         "cpu_type": SignalSpec(tier: .full, scope: .staticProfile),
-        "custom_user_id": SignalSpec(tier: .minimal, scope: .identity),
+        "custom_user_id": SignalSpec(tier: .minimal, scope: .user),
         "deeplinkly_device_id": SignalSpec(tier: .minimal, scope: .staticProfile),
         "device_class": SignalSpec(tier: .reduced, scope: .staticProfile),
         "device_model": SignalSpec(tier: .full, scope: .staticProfile),
@@ -91,6 +93,17 @@ enum SignalCatalogue {
         "ttclid": SignalSpec(tier: .reduced, scope: .identity),
         "ui_mode_night": SignalSpec(tier: .reduced, scope: .dynamicSignal),
         "unidentified_device": SignalSpec(tier: .reduced, scope: .dynamicSignal),
+        "user_city": SignalSpec(tier: .minimal, scope: .user),
+        "user_country": SignalSpec(tier: .minimal, scope: .user),
+        "user_date_of_birth": SignalSpec(tier: .minimal, scope: .user),
+        "user_email": SignalSpec(tier: .minimal, scope: .user),
+        "user_first_name": SignalSpec(tier: .minimal, scope: .user),
+        "user_gender": SignalSpec(tier: .minimal, scope: .user),
+        "user_last_name": SignalSpec(tier: .minimal, scope: .user),
+        "user_phone": SignalSpec(tier: .minimal, scope: .user),
+        "user_state": SignalSpec(tier: .minimal, scope: .user),
+        "user_street": SignalSpec(tier: .minimal, scope: .user),
+        "user_zip": SignalSpec(tier: .minimal, scope: .user),
         "utm_campaign": SignalSpec(tier: .reduced, scope: .identity),
         "utm_content": SignalSpec(tier: .reduced, scope: .identity),
         "utm_medium": SignalSpec(tier: .reduced, scope: .identity),

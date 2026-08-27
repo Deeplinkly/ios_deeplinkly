@@ -139,18 +139,27 @@ final class SignalCatalogueTests: XCTestCase {
 
     // MARK: - Scopes
 
-    /// The three scopes partition the catalogue — every spec has exactly one,
+    /// The four scopes partition the catalogue — every spec has exactly one,
     /// and `keys(for:)` reconstructs the whole table.
+    ///
+    /// Written over the whole set rather than naming the scopes pairwise, so
+    /// that adding a fifth fails here instead of quietly leaving its keys out
+    /// of the count.
     func testScopesPartitionTheCatalogue() {
-        let staticKeys = SignalCatalogue.keys(for: .staticProfile)
-        let dynamicKeys = SignalCatalogue.keys(for: .dynamicSignal)
-        let identityKeys = SignalCatalogue.keys(for: .identity)
+        let byScope: [Set<String>] = [
+            SignalCatalogue.keys(for: .staticProfile),
+            SignalCatalogue.keys(for: .dynamicSignal),
+            SignalCatalogue.keys(for: .identity),
+            SignalCatalogue.keys(for: .user),
+        ]
 
-        XCTAssertTrue(staticKeys.isDisjoint(with: dynamicKeys))
-        XCTAssertTrue(staticKeys.isDisjoint(with: identityKeys))
-        XCTAssertTrue(dynamicKeys.isDisjoint(with: identityKeys))
+        for (i, left) in byScope.enumerated() {
+            for right in byScope[(i + 1)...] {
+                XCTAssertTrue(left.isDisjoint(with: right))
+            }
+        }
         XCTAssertEqual(
-            staticKeys.union(dynamicKeys).union(identityKeys).count,
+            byScope.reduce(into: Set<String>()) { $0.formUnion($1) }.count,
             SignalCatalogue.specs.count)
     }
 
@@ -172,14 +181,50 @@ final class SignalCatalogueTests: XCTestCase {
     }
 
     /// `identity` names the link or user, never the device.
-    func testIdentityScopeIsLinkAndUserOnly() {
+    /// Link identity, and nothing else.
+    ///
+    /// `custom_user_id` used to be here and is now `user`-scoped. That is not
+    /// cosmetic: `DeepLinkQueue` derives what it persists alongside a pending
+    /// resolve from this set, and used to subtract `custom_user_id` by hand to
+    /// keep it out. The scope now says it, so the exclusion list is gone — and
+    /// every personal field added since is kept off that queue by construction
+    /// rather than by someone remembering.
+    func testIdentityScopeIsLinkOnly() {
         XCTAssertEqual(
             SignalCatalogue.keys(for: .identity),
             [
-                "click_id", "code", "custom_user_id", "source",
+                "click_id", "code", "source",
                 "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
                 "gclid", "fbclid", "ttclid", "gbraid", "wbraid",
             ])
+    }
+
+    /// What the host app tells us about the person, and nothing else.
+    func testUserScopeIsWhatTheAppToldUsAboutThePerson() {
+        XCTAssertEqual(
+            SignalCatalogue.keys(for: .user),
+            [
+                "custom_user_id",
+                "user_email", "user_phone", "user_first_name", "user_last_name",
+                "user_date_of_birth", "user_gender", "user_street", "user_city",
+                "user_state", "user_zip", "user_country",
+            ])
+    }
+
+    /// Personal data survives a REDUCED downgrade.
+    ///
+    /// Deliberate, and the reason it is worth pinning: the attribution levels
+    /// exist to gate what we *observe* about a device, and an email the person
+    /// typed into the host app is not an observation. Dropping it at REDUCED
+    /// would mean a user who asked for less device tracking also silently lost
+    /// the only match key their conversions have on iOS.
+    func testUserDataSurvivesEveryLevelExceptNone() {
+        for key in SignalCatalogue.keys(for: .user) {
+            XCTAssertTrue(SignalCatalogue.allows(key, at: .minimal), key)
+            XCTAssertTrue(SignalCatalogue.allows(key, at: .reduced), key)
+            XCTAssertTrue(SignalCatalogue.allows(key, at: .full), key)
+            XCTAssertFalse(SignalCatalogue.allows(key, at: .none), key)
+        }
     }
 
     // MARK: - Versioning

@@ -2,7 +2,7 @@
 
 This is the iOS subset of [`tool/signals.json`](../tool/signals.json), the
 catalogue that controls every field the SDK may send to `/api/v1/enrich` and
-inside an event's optional device block. Catalogue version 8.
+inside an event's optional device block. Catalogue version 9.
 
 A field absent from the catalogue is dropped at every attribution level,
 including `full`.
@@ -24,7 +24,6 @@ describe the user or link rather than the device.
 | --- | --- | --- |
 | `click_id` | minimal | string |
 | `code` | minimal | string |
-| `custom_user_id` | minimal | string |
 | `source` | minimal | string |
 | `fbclid` | reduced | string |
 | `gbraid` | reduced | string |
@@ -36,6 +35,32 @@ describe the user or link rather than the device.
 | `utm_source` | reduced | string |
 | `utm_term` | reduced | string |
 | `wbraid` | reduced | string |
+
+## User data
+
+What the host app told us about the person, via `setUserData()` / `setUserId()`.
+Not observed, not derived — values you supplied. They are sent as supplied and
+hashed only when a conversion is forwarded to Meta or Google.
+
+Classified `minimal`, so they survive a `.reduced` downgrade. The attribution
+levels gate what the SDK *observes* about a device, and an email the person
+typed into your app is not an observation. At `.none` nothing is sent, here as
+everywhere.
+
+| Field | Level | Type | Max length |
+| --- | --- | --- | --- |
+| `custom_user_id` | minimal | string | 256 |
+| `user_email` | minimal | string | 320 |
+| `user_phone` | minimal | string | 32 |
+| `user_first_name` | minimal | string | 128 |
+| `user_last_name` | minimal | string | 128 |
+| `user_date_of_birth` | minimal | string | 10 |
+| `user_gender` | minimal | string | 1 |
+| `user_street` | minimal | string | 256 |
+| `user_city` | minimal | string | 128 |
+| `user_state` | minimal | string | 128 |
+| `user_zip` | minimal | string | 32 |
+| `user_country` | minimal | string | 2 |
 
 ## Static device profile
 

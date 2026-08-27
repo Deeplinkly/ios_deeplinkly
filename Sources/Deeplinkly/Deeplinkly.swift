@@ -247,6 +247,130 @@ public enum Deeplinkly {
         UserIdManager.updateCustomUserId(newId: userId, apiKey: key)
     }
 
+    /// Records what you know about the person using your app.
+    ///
+    /// These are the fields a conversion is matched on once it is forwarded to
+    /// Meta's Conversions API or Google's enhanced conversions, and this is the
+    /// platform where that matters most: with App Tracking Transparency denied
+    /// there is no IDFA, so a hashed email is the only match key left. Supplying
+    /// one here is the difference between a purchase attributed to the campaign
+    /// that produced it and one that is not.
+    ///
+    /// Values are sent as you supply them and hashed only at forwarding time;
+    /// see `DeeplinklyUserData` for why on-device hashing would be security
+    /// theatre rather than a safeguard. Supply only what your own privacy policy
+    /// and consent flow allow — the SDK cannot know what you told your users.
+    ///
+    /// ## Merging
+    ///
+    /// Each call merges: a field left nil is left as it was, so you can call
+    /// this at sign-up with an email and again at checkout with an address. That
+    /// means a single field cannot be cleared by passing nil for it —
+    /// ``clearUserData()`` erases all of them, and ``setUserId(_:)`` with nil
+    /// clears just the id.
+    ///
+    /// - Parameters:
+    ///   - userId: your own identifier for this person. Delegates to
+    ///     ``setUserId(_:)``, so it shares that value rather than storing a
+    ///     second copy.
+    ///   - dateOfBirth: `YYYY-MM-DD`.
+    ///   - gender: `"m"` or `"f"` — the only two values Meta's `ge` accepts.
+    ///     Anything else is refused rather than coerced.
+    ///   - country: ISO-3166-1 alpha-2, e.g. `"US"`.
+    /// - Returns: false if any field was malformed, in which case **nothing**
+    ///   was stored. All or nothing, so a rejected call never leaves you
+    ///   guessing which of the values took.
+    @discardableResult
+    public static func setUserData(
+        userId: String? = nil,
+        email: String? = nil,
+        phoneNumber: String? = nil,
+        firstName: String? = nil,
+        lastName: String? = nil,
+        dateOfBirth: String? = nil,
+        gender: String? = nil,
+        street: String? = nil,
+        city: String? = nil,
+        state: String? = nil,
+        zip: String? = nil,
+        country: String? = nil
+    ) -> Bool {
+        stateLock.lock()
+        let key = storedApiKey
+        let ready = enabled
+        stateLock.unlock()
+        guard ready else { return false }
+
+        let result = DeeplinklyUserData.normalizeAll([
+            DeeplinklyUserData.keyEmail: email,
+            DeeplinklyUserData.keyPhone: phoneNumber,
+            DeeplinklyUserData.keyFirstName: firstName,
+            DeeplinklyUserData.keyLastName: lastName,
+            DeeplinklyUserData.keyDateOfBirth: dateOfBirth,
+            DeeplinklyUserData.keyGender: gender,
+            DeeplinklyUserData.keyStreet: street,
+            DeeplinklyUserData.keyCity: city,
+            DeeplinklyUserData.keyState: state,
+            DeeplinklyUserData.keyZip: zip,
+            DeeplinklyUserData.keyCountry: country,
+        ])
+        if let rejection = result.rejection {
+            Logger.w("Rejected setUserData: \(rejection.reason)")
+            return false
+        }
+        let fields = result.fields ?? [:]
+
+        // The id first, and through the same manager setUserId uses, so there
+        // is exactly one place custom_user_id is stored no matter which of the
+        // two public entry points wrote it.
+        if let trimmed = userId?.trimmingCharacters(in: .whitespacesAndNewlines),
+            !trimmed.isEmpty
+        {
+            UserIdManager.updateCustomUserId(newId: trimmed, apiKey: key)
+        }
+
+        guard !fields.isEmpty else { return true }
+        UserDataStore.merge(fields)
+
+        // force: knowing who someone is has nothing to do with whether a link
+        // brought them here, so this must not be gated on attribution evidence
+        // — an organic install would otherwise never report it.
+        EnrichmentSender.sendOnce(
+            attributionData: [:],
+            source: EnrichmentSender.userDataSource,
+            apiKey: key,
+            force: true
+        )
+        return true
+    }
+
+    /// Forgets everything ``setUserData(userId:email:phoneNumber:firstName:lastName:dateOfBirth:gender:street:city:state:zip:country:)``
+    /// and ``setUserId(_:)`` recorded, here and on our servers.
+    ///
+    /// Call it on sign-out, or when someone withdraws consent. Unlike letting
+    /// the values simply stop being sent, this actively erases them: the next
+    /// enrichment carries each previously-set field as an empty value, which the
+    /// backend reads as "null this column" rather than "not reported".
+    ///
+    /// The erasure is re-sent until it is delivered, so calling this on a device
+    /// that is offline still takes effect once it is not.
+    public static func clearUserData() {
+        stateLock.lock()
+        let key = storedApiKey
+        let ready = enabled
+        stateLock.unlock()
+        guard ready else { return }
+
+        UserIdManager.updateCustomUserId(newId: nil, apiKey: key)
+        UserDataStore.clear()
+        EnrichmentSender.sendOnce(
+            attributionData: [:],
+            source: EnrichmentSender.userDataSource,
+            apiKey: key,
+            force: true
+        )
+    }
+
     // MARK: - Events
 
     /// Logs a custom event.
@@ -276,6 +400,12 @@ public enum Deeplinkly {
         }
 
         var params = parameters
+        // One id per call, and the same id on every replay of it: the retry
+        // queue stores the payload built here, so an event that was delivered
+        // but whose response was lost comes back carrying the id the backend
+        // already has and is refused as the duplicate it is. Meta CAPI's
+        // `event_id` wants the same value.
+        params["_dl_event_id"] = UUID().uuidString
         params["_dl_event_seq"] = String(nextEventSequence())
         // Milliseconds since the SDK initialised, not a raw systemUptime
         // reading. Same ordering power for events from a device with a wrong
@@ -296,6 +426,69 @@ public enum Deeplinkly {
         ) { ok in
             answer(ok, to: completion)
         }
+    }
+
+    /// Logs a purchase.
+    ///
+    /// A thin, typed wrapper over ``logEvent(_:parameters:completion:)`` rather
+    /// than a separate pipeline: it sends the event named `purchase` with
+    /// `value` and `currency` set, and everything true of `logEvent` — the retry
+    /// queue, the parameter limits, the device block — is true of this too.
+    ///
+    /// The wrapper exists because those two keys have to be spelled the same way
+    /// by every caller. `logEvent` is untyped, so left to themselves one app
+    /// sends `revenue`, another sends `"$49.99"`, and a conversion forwarder has
+    /// to guess. Meta's Conversions API wants `custom_data.value` and
+    /// `currency`; Google wants a conversion value and currency. This is the one
+    /// spelling both can be built from.
+    ///
+    /// - Parameters:
+    ///   - value: the amount, in `currency`. Rejected if negative or not finite
+    ///     — a refund is not a negative purchase, it is a different event.
+    ///   - currency: ISO-4217, e.g. `"USD"`. Case-insensitive.
+    ///   - orderId: your own id for the transaction. Worth passing: it is what
+    ///     Google deduplicates conversions on, and it is how you reconcile a
+    ///     forwarded conversion against your own records.
+    ///   - parameters: anything else you want on the event. May not contain the
+    ///     keys this method sets.
+    ///   - completion: receives true only when the backend accepted the event.
+    public static func logPurchase(
+        value: Double,
+        currency: String,
+        orderId: String? = nil,
+        quantity: Int? = nil,
+        productId: String? = nil,
+        parameters: [String: Any] = [:],
+        completion: ((Bool) -> Void)? = nil
+    ) {
+        stateLock.lock()
+        let ready = enabled
+        stateLock.unlock()
+
+        guard ready else {
+            answer(false, to: completion)
+            return
+        }
+
+        let purchase = DeeplinklyPurchase.build(
+            value: value,
+            currency: currency,
+            orderId: orderId,
+            quantity: quantity,
+            productId: productId,
+            parameters: parameters
+        )
+        if let rejection = purchase.rejection {
+            Logger.w("Rejected purchase: \(rejection.reason)")
+            answer(false, to: completion)
+            return
+        }
+
+        logEvent(
+            DeeplinklyPurchase.eventName,
+            parameters: purchase.parameters ?? [:],
+            completion: completion
+        )
     }
 
     /// The next event sequence number, read and written under one lock.

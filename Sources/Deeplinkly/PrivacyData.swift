@@ -9,6 +9,9 @@ enum PrivacyData {
         "dl_pending_retries", "sdk_retry_queue",
         "dl_attribution_level",
         "custom_user_id",
+        // The person's own email and address. One key, not eleven — see
+        // UserDataStore for why this list is the reason it is stored that way.
+        UserDataStore.storageKey,
         "initial_attribution",
         "dl_session_id", "dl_session_last_at",
         "dl_static_profile", "dl_static_profile_stamp", "dl_install_instance_id",
@@ -23,6 +26,7 @@ enum PrivacyData {
         "clipboard_enriched",
         "paste_control_enriched",
         "custom_user_id_enriched",
+        "user_data_enriched",
     ]
 
     private static func isEnrichmentLatch(_ key: String) -> Bool {
