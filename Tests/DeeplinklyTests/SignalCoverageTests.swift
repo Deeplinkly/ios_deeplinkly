@@ -32,7 +32,7 @@ final class SignalCoverageTests: XCTestCase {
         "source", "click_id", "code", "ios_reported_at",
         // NetworkUtils.attributionQuery, off the link's own query string
         "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
-        "gclid", "fbclid", "ttclid",
+        "gclid", "fbclid", "ttclid", "gbraid", "wbraid",
     ]
 
     /// Signals that are legitimately absent on a simulator or on a device that

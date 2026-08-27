@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.0 - 2026-08-27
+
+- Collects the Google Ads `gbraid` and `wbraid` click identifiers. Signal
+  catalogue version 8; both are classified `reduced`/`identity`, so they ship
+  at every level except `none`.
+- Carries both on the resolve query, the attribution snapshot, and the
+  enrichment payload. iOS Google App campaigns deliver `gbraid` precisely
+  because there is no IDFA to match on, and the SDK was discarding it.
+
 ## 1.0.1 - 2026-08-16
 
 - Makes tracking opt-out strict for reporting: pending retries are purged,

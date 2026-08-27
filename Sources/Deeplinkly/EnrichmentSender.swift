@@ -67,7 +67,7 @@ enum EnrichmentSender {
         // Android counts it, and a code-only deferred link was silently dropped.
         let keys = [
             "click_id", "code", "utm_source", "utm_medium", "utm_campaign",
-            "gclid", "fbclid", "ttclid",
+            "gclid", "fbclid", "ttclid", "gbraid", "wbraid",
         ]
         let hasAttr = keys.contains { (data[$0] ?? nil)?.isEmpty == false }
         guard hasAttr || force || isLifecycle else {

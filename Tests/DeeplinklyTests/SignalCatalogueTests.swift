@@ -178,7 +178,7 @@ final class SignalCatalogueTests: XCTestCase {
             [
                 "click_id", "code", "custom_user_id", "source",
                 "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
-                "gclid", "fbclid", "ttclid",
+                "gclid", "fbclid", "ttclid", "gbraid", "wbraid",
             ])
     }
 

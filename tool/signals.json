@@ -27,7 +27,7 @@
     "collected on devices whose app version did not change."
   ],
 
-  "catalogue_version": 7,
+  "catalogue_version": 8,
 
   "signals": {
     "deeplinkly_device_id":  { "tier": "minimal", "scope": "static",   "type": "string" },
@@ -129,6 +129,8 @@
     "utm_content":           { "tier": "reduced", "scope": "identity", "type": "string" },
     "gclid":                 { "tier": "reduced", "scope": "identity", "type": "string" },
     "fbclid":                { "tier": "reduced", "scope": "identity", "type": "string" },
-    "ttclid":                { "tier": "reduced", "scope": "identity", "type": "string" }
+    "ttclid":                { "tier": "reduced", "scope": "identity", "type": "string" },
+    "gbraid":                { "tier": "reduced", "scope": "identity", "type": "string" },
+    "wbraid":                { "tier": "reduced", "scope": "identity", "type": "string" }
   }
 }

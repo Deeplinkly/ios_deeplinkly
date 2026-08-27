@@ -36,7 +36,7 @@ struct SignalSpec {
 /// rather than maintained by hand.
 enum SignalCatalogue {
     /// Part of the static-profile stamp; bumping it forces a re-collect.
-    static let version = 7
+    static let version = 8
 
     static let specs: [String: SignalSpec] = [
         "app_build_number": SignalSpec(tier: .minimal, scope: .staticProfile),
@@ -58,6 +58,7 @@ enum SignalCatalogue {
         "fbclid": SignalSpec(tier: .reduced, scope: .identity),
         "first_app_version": SignalSpec(tier: .reduced, scope: .staticProfile),
         "first_open_at": SignalSpec(tier: .reduced, scope: .staticProfile),
+        "gbraid": SignalSpec(tier: .reduced, scope: .identity),
         "gclid": SignalSpec(tier: .reduced, scope: .identity),
         "hardware_concurrency": SignalSpec(tier: .full, scope: .staticProfile),
         "idfa": SignalSpec(tier: .full, scope: .dynamicSignal),
@@ -95,6 +96,7 @@ enum SignalCatalogue {
         "utm_medium": SignalSpec(tier: .reduced, scope: .identity),
         "utm_source": SignalSpec(tier: .reduced, scope: .identity),
         "utm_term": SignalSpec(tier: .reduced, scope: .identity),
+        "wbraid": SignalSpec(tier: .reduced, scope: .identity),
         "webview_user_agent": SignalSpec(tier: .full, scope: .staticProfile),
     ]
 

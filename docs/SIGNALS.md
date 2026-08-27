@@ -2,7 +2,7 @@
 
 This is the iOS subset of [`tool/signals.json`](../tool/signals.json), the
 catalogue that controls every field the SDK may send to `/api/v1/enrich` and
-inside an event's optional device block. Catalogue version 7.
+inside an event's optional device block. Catalogue version 8.
 
 A field absent from the catalogue is dropped at every attribution level,
 including `full`.
@@ -27,6 +27,7 @@ describe the user or link rather than the device.
 | `custom_user_id` | minimal | string |
 | `source` | minimal | string |
 | `fbclid` | reduced | string |
+| `gbraid` | reduced | string |
 | `gclid` | reduced | string |
 | `ttclid` | reduced | string |
 | `utm_campaign` | reduced | string |
@@ -34,6 +35,7 @@ describe the user or link rather than the device.
 | `utm_medium` | reduced | string |
 | `utm_source` | reduced | string |
 | `utm_term` | reduced | string |
+| `wbraid` | reduced | string |
 
 ## Static device profile
 

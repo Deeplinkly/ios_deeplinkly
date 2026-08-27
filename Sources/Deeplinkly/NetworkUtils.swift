@@ -241,9 +241,15 @@ enum NetworkUtils {
     }
 
     /// Attribution keys the backend surfaces inside the resolve response's "params".
+    ///
+    /// `gbraid`/`wbraid` are the iOS-critical pair: Google App campaigns deliver
+    /// them precisely because there is no IDFA to match on. They are listed here
+    /// ahead of the backend, which does not yet persist either on ClickEvent —
+    /// until it does they ride the /enrich fallback path, where the signal
+    /// catalogue now admits them, rather than the resolve response.
     private static let attributionKeys = [
         "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
-        "gclid", "fbclid", "ttclid",
+        "gclid", "fbclid", "ttclid", "gbraid", "wbraid",
     ]
 
     /// Builds the normalized attribution snapshot persisted by AttributionStore.

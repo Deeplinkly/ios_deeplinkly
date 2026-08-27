@@ -131,6 +131,7 @@ final class NetworkUtilsTests: XCTestCase {
             "utm_source": "news", "utm_medium": "email", "utm_campaign": "spring",
             "utm_term": "shoes", "utm_content": "hero",
             "gclid": "g1", "fbclid": "f1", "ttclid": "t1",
+            "gbraid": "gb1", "wbraid": "wb1",
             "screen": "profile", "session_token": "secret",
         ])
 
@@ -138,9 +139,18 @@ final class NetworkUtilsTests: XCTestCase {
             Set(out.keys),
             [
                 "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
-                "gclid", "fbclid", "ttclid",
+                "gclid", "fbclid", "ttclid", "gbraid", "wbraid",
             ])
         XCTAssertNil(out["session_token"])
+    }
+
+    /// The iOS case the whole pair exists for. A Google App campaign that has
+    /// no IDFA to match on delivers `gbraid` instead of `gclid`, so a link
+    /// carrying only `gbraid` still has to produce a non-empty query — it was
+    /// previously dropped here and the click went unattributed.
+    func testAttributionQueryKeepsGbraidWithoutGclid() {
+        let out = NetworkUtils.attributionQuery(["gbraid": "gb1", "screen": "profile"])
+        XCTAssertEqual(out, ["gbraid": "gb1"])
     }
 
     func testAttributionQueryDropsEmptyValues() {
@@ -281,7 +291,7 @@ final class NetworkUtilsTests: XCTestCase {
         XCTAssertEqual(snapshot["source"] ?? nil, "app_start")
         for key in [
             "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
-            "gclid", "fbclid", "ttclid",
+            "gclid", "fbclid", "ttclid", "gbraid", "wbraid",
         ] {
             XCTAssertFalse(
                 snapshot.keys.contains(key), "\(key) is present despite having no value")

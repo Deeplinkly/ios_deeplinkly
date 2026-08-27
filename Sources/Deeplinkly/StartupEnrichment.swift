@@ -54,7 +54,10 @@ enum StartupEnrichment {
     /// deferred link often resolves to a click id with no UTMs on it at all,
     /// and omitting them here meant the wait always timed out.
     private static func hasAttributionData(_ attr: [String: Any]) -> Bool {
-        let keys = ["click_id", "code", "utm_source", "gclid", "fbclid", "ttclid"]
+        let keys = [
+            "click_id", "code", "utm_source", "gclid", "fbclid", "ttclid",
+            "gbraid", "wbraid",
+        ]
         return keys.contains { !((attr[$0] as? String) ?? "").isEmpty }
     }
 }

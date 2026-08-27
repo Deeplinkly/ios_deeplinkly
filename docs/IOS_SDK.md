@@ -419,7 +419,7 @@ it. Depending on the link, it can contain:
 - `click_id`
 - `source`
 - `utm_source`, `utm_medium`, `utm_campaign`, `utm_term`, `utm_content`
-- `gclid`, `fbclid`, `ttclid`
+- `gclid`, `fbclid`, `ttclid`, `gbraid`, `wbraid`
 
 ### Deeplinkly install ID
 
