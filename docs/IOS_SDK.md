@@ -444,6 +444,62 @@ Clear the association on logout:
 Deeplinkly.setUserId(nil)
 ```
 
+### User data
+
+The fields a conversion is matched on once it reaches Meta's Conversions API or
+Google's enhanced conversions. This is the platform where that matters most:
+with App Tracking Transparency denied there is no IDFA, so a hashed email is
+the only match key that still exists.
+
+```swift
+let stored = Deeplinkly.setUserData(
+    userId: "user_123",
+    email: "ada@example.com",
+    phoneNumber: "+441234567890",
+    firstName: "Ada",
+    lastName: "Lovelace",
+    city: "London",
+    country: "GB"
+)
+```
+
+Every field is optional and each call **merges**, so you can supply an email at
+sign-up and an address at checkout. A malformed field rejects the whole call —
+nothing is stored — so you never have to guess which of the values took.
+
+Values are sent as you supply them and hashed only when a conversion is
+forwarded. On-device hashing would look safer and buy nothing: the digest of a
+normalised email is exactly the value Meta matches on, so anyone holding it
+holds the match key. Keeping the plaintext is also what lets the backend
+normalise per destination, which Meta and Google disagree about.
+
+Supply only what your own privacy policy and consent flow allow — the SDK
+cannot know what you told your users. These fields survive a `.reduced`
+downgrade, because the attribution levels gate what the SDK *observes* about a
+device and an email someone typed into your app is not an observation. At
+`.none` nothing is sent, here as everywhere.
+
+Constraints, enforced before anything is stored:
+
+- `dateOfBirth`: `YYYY-MM-DD`
+- `gender`: `"m"` or `"f"` — the only two values Meta's `ge` accepts. Anything
+  else is refused rather than coerced into a letter that means something you did
+  not say.
+- `country`: ISO-3166-1 alpha-2, e.g. `"US"`
+- per-field maximum lengths, listed in [SIGNALS.md](SIGNALS.md)
+
+To erase everything recorded — on sign-out, or when someone withdraws consent:
+
+```swift
+Deeplinkly.clearUserData()
+```
+
+This is not merely "stop sending": the next enrichment reports each
+previously-set field as empty, which the backend reads as "null this column".
+The erasure is re-sent until it is delivered, so calling it on a device that is
+offline still takes effect once it is not. `PrivacyData.reset()` removes the
+local store as well.
+
 ## Attribution levels and tracking consent
 
 Attribution levels filter the device block attached to enrichment and events:
@@ -510,6 +566,11 @@ Validation rules:
 - At most 25 caller parameters are accepted.
 - Parameter keys must be non-empty and at most 64 UTF-16 code units.
 - Keys starting with `_dl_` are reserved for SDK metadata.
+- `value` must be a non-negative finite number and `currency` a three-letter
+  ISO-4217 code, wherever either appears. They are ordinary parameters
+  otherwise — they cost a parameter and you see them in your dashboard — but
+  the backend also lifts them into typed columns, which is what a conversion
+  forwarder reads.
 - Values may be strings, numbers, booleans, JSON-compatible arrays, or
   string-keyed JSON-compatible dictionaries.
 - String values are limited to 256 UTF-16 code units.
@@ -522,6 +583,45 @@ are queued for retry; the immediate completion still receives `false`.
 
 At attribution level `.none`, the event is sent without a device block. With
 tracking disabled, it is not sent.
+
+## Purchases
+
+```swift
+Deeplinkly.logPurchase(
+    value: 49.99,
+    currency: "USD",
+    orderId: "ord_42",
+    quantity: 1,
+    productId: "sku_9"
+) { accepted in
+    // Main thread. False means validation or delivery failed.
+}
+```
+
+A typed wrapper over `logEvent` rather than a separate pipeline: it sends the
+event named `purchase` with `value` and `currency` set, and everything true of
+`logEvent` — the retry queue, the parameter limits, the device block — is true
+of this too.
+
+It exists because those two keys have to be spelled the same way by every
+caller. `logEvent` is untyped, so left to themselves one app sends `revenue` and
+another sends `"USD 49.99"`, and a conversion forwarder has to guess. Meta's
+Conversions API wants `custom_data.value` and `currency`; Google wants a
+conversion value and currency. This is the one spelling both can be built from.
+
+Rejected, sending nothing, if the value is negative or not finite (a refund is a
+different event, not a negative purchase), the currency is not three letters,
+the quantity is negative, or `parameters` contains any of the keys this method
+sets.
+
+`orderId` is worth passing: it is what Google deduplicates conversions on, and
+it is how you reconcile a forwarded conversion against your own records.
+
+Every event, purchase or not, also carries a client-generated event id. It is
+Meta CAPI's `event_id`, and it is what makes a replay off the retry queue
+idempotent: an event that was delivered but whose response was lost comes back
+carrying an id the backend already has, and is refused rather than counted
+twice.
 
 ## Generate a link
 
@@ -576,7 +676,10 @@ and always receive a result map.
 | `Deeplinkly.getInstallAttribution()` | Read the persisted first-touch attribution map |
 | `Deeplinkly.getDeeplinklyId()` | Read or create the local install identifier |
 | `Deeplinkly.setUserId(_:)` | Set or clear the app's custom user identifier |
+| `Deeplinkly.setUserData(...)` | Record the person's details for conversion matching |
+| `Deeplinkly.clearUserData()` | Erase those details here and on the server |
 | `Deeplinkly.logEvent(_:parameters:completion:)` | Validate and report a custom event |
+| `Deeplinkly.logPurchase(value:currency:...)` | Report a purchase with a typed value and currency |
 | `Deeplinkly.generateLink(payload:completion:)` | Create a Deeplinkly URL |
 | `Deeplinkly.setTrackingEnabled(_:)` | Enable or disable all reporting |
 | `Deeplinkly.isTrackingEnabled()` | Read the persistent reporting switch |

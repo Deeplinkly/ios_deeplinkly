@@ -285,7 +285,13 @@ authorized tracking.
 ## Documentation
 
 - [Complete integration and API guide](docs/IOS_SDK.md)
-- [Device signal catalogue](docs/SIGNALS.md)
+- [Device signal catalogue](docs/SIGNALS.md) — every field the SDK may send and
+  the lowest attribution level at which each still ships. This is the reference
+  to use when filling in your App Store **privacy label** or your own privacy
+  notice; those declarations must cover what your app configures the SDK to
+  send, not only the defaults.
+- [Deeplinkly Privacy Policy](https://www.deeplinkly.com/privacy-policy) — Deeplinkly's own handling of that
+  data, its recipients, and retention.
 
 ## Development
 
