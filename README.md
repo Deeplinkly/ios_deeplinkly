@@ -290,8 +290,11 @@ authorized tracking.
   to use when filling in your App Store **privacy label** or your own privacy
   notice; those declarations must cover what your app configures the SDK to
   send, not only the defaults.
-- [Deeplinkly Privacy Policy](https://www.deeplinkly.com/privacy-policy) — Deeplinkly's own handling of that
-  data, its recipients, and retention.
+- [Data & Privacy](https://www.deeplinkly.com/docs/privacy) — what the service
+  stores, what `setUserData()` makes you the controller of, and how retention
+  and deletion work today.
+- [Deeplinkly Privacy Policy](https://www.deeplinkly.com/privacy-policy) — the
+  binding document: recipients, legal bases, and transfers.
 
 ## Development
 
