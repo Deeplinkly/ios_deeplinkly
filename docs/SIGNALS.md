@@ -1,128 +1,128 @@
-# iOS device signals
+<!-- GENERATED FILE — do not edit. -->
+<!-- Source: tool/signals.json -->
+<!-- Regenerate: dart run tool/gen_signals.dart -->
 
-This is the iOS subset of [`tool/signals.json`](../tool/signals.json), the
-catalogue that controls every field the SDK may send to `/api/v1/enrich` and
-inside an event's optional device block. Catalogue version 9.
+# Device signals
 
-A field absent from the catalogue is dropped at every attribution level,
-including `full`.
+Every field the SDK may send to `/api/v1/enrich`, and the lowest
+[attribution level](IOS_SDK.md#attribution-levels-and-tracking-consent) at which each still
+ships. Catalogue version 9.
 
-The level column is the lowest level at which a field is included:
+A field absent from this table is never sent, at any level: the SDK drops
+anything it cannot find in the catalogue rather than defaulting to
+permissive.
 
-- `minimal` fields are included at `minimal`, `reduced`, and `full`.
-- `reduced` fields are included at `reduced` and `full`.
-- `full` fields are included only at `full`.
-- At `none`, no enrichment or event device block is sent.
+**Level** — `minimal` also ships at `reduced` and `full`; `reduced` also
+ships at `full`; `full` ships only at `full`. At `none` nothing is sent.
 
-Static fields are cached and refreshed when the app, OS, SDK, or catalogue
-version changes. Dynamic fields are collected at send time. Identity fields
-describe the user or link rather than the device.
+**When** — `static` is collected once per device and cached until the app,
+OS or SDK version changes. `dynamic` is re-read on every send. `identity`
+names the link being reported on rather than the device, and `user` is what
+the host app told us about the person via `setUserData()`.
 
 ## Link identity
 
-| Field | Level | Type |
-| --- | --- | --- |
-| `click_id` | minimal | string |
-| `code` | minimal | string |
-| `source` | minimal | string |
-| `fbclid` | reduced | string |
-| `gbraid` | reduced | string |
-| `gclid` | reduced | string |
-| `ttclid` | reduced | string |
-| `utm_campaign` | reduced | string |
-| `utm_content` | reduced | string |
-| `utm_medium` | reduced | string |
-| `utm_source` | reduced | string |
-| `utm_term` | reduced | string |
-| `wbraid` | reduced | string |
+| Field | Level | Type | Platforms |
+| --- | --- | --- | --- |
+| `click_id` | minimal | string | both |
+| `code` | minimal | string | both |
+| `install_referrer` | minimal | string | android |
+| `source` | minimal | string | both |
+| `fbclid` | reduced | string | both |
+| `gbraid` | reduced | string | both |
+| `gclid` | reduced | string | both |
+| `ttclid` | reduced | string | both |
+| `utm_campaign` | reduced | string | both |
+| `utm_content` | reduced | string | both |
+| `utm_medium` | reduced | string | both |
+| `utm_source` | reduced | string | both |
+| `utm_term` | reduced | string | both |
+| `wbraid` | reduced | string | both |
 
 ## User data
 
-What the host app told us about the person, via `setUserData()` / `setUserId()`.
-Not observed, not derived — values you supplied. They are sent as supplied and
-hashed only when a conversion is forwarded to Meta or Google.
-
-Classified `minimal`, so they survive a `.reduced` downgrade. The attribution
-levels gate what the SDK *observes* about a device, and an email the person
-typed into your app is not an observation. At `.none` nothing is sent, here as
-everywhere.
-
-| Field | Level | Type | Max length |
+| Field | Level | Type | Platforms |
 | --- | --- | --- | --- |
-| `custom_user_id` | minimal | string | 256 |
-| `user_email` | minimal | string | 320 |
-| `user_phone` | minimal | string | 32 |
-| `user_first_name` | minimal | string | 128 |
-| `user_last_name` | minimal | string | 128 |
-| `user_date_of_birth` | minimal | string | 10 |
-| `user_gender` | minimal | string | 1 |
-| `user_street` | minimal | string | 256 |
-| `user_city` | minimal | string | 128 |
-| `user_state` | minimal | string | 128 |
-| `user_zip` | minimal | string | 32 |
-| `user_country` | minimal | string | 2 |
+| `custom_user_id` | minimal | string | both |
+| `user_city` | minimal | string | both |
+| `user_country` | minimal | string | both |
+| `user_date_of_birth` | minimal | string | both |
+| `user_email` | minimal | string | both |
+| `user_first_name` | minimal | string | both |
+| `user_gender` | minimal | string | both |
+| `user_last_name` | minimal | string | both |
+| `user_phone` | minimal | string | both |
+| `user_state` | minimal | string | both |
+| `user_street` | minimal | string | both |
+| `user_zip` | minimal | string | both |
 
 ## Static device profile
 
-| Field | Level | Type |
-| --- | --- | --- |
-| `app_build_number` | minimal | string |
-| `app_id` | minimal | string |
-| `app_version` | minimal | string |
-| `deeplinkly_device_id` | minimal | string |
-| `install_instance_id` | minimal | string |
-| `installed_at` | minimal | datetime |
-| `platform` | minimal | string |
-| `sdk_version` | minimal | string |
-| `static_profile_version` | minimal | string |
-| `device_class` | reduced | string |
-| `environment` | reduced | string |
-| `first_app_version` | reduced | string |
-| `first_open_at` | reduced | datetime |
-| `is_emulator` | reduced | bool |
-| `is_hardware_id_real` | reduced | bool |
-| `os_version` | reduced | string |
-| `brand` | full | string |
-| `cpu_type` | full | string |
-| `device_model` | full | string |
-| `hardware_concurrency` | full | int |
-| `idfv` | full | string |
-| `manufacturer` | full | string |
-| `os_build_id` | full | string |
-| `pixel_ratio` | full | float |
-| `screen_dpi` | full | int |
-| `screen_height` | full | int |
-| `screen_width` | full | int |
-| `webview_user_agent` | full | string |
+| Field | Level | Type | Platforms |
+| --- | --- | --- | --- |
+| `app_build_number` | minimal | string | both |
+| `app_id` | minimal | string | both |
+| `app_version` | minimal | string | both |
+| `deeplinkly_device_id` | minimal | string | both |
+| `install_instance_id` | minimal | string | both |
+| `installed_at` | minimal | datetime | both |
+| `platform` | minimal | string | both |
+| `sdk_version` | minimal | string | both |
+| `static_profile_version` | minimal | string | both |
+| `device_class` | reduced | string | both |
+| `environment` | reduced | string | both |
+| `first_app_version` | reduced | string | both |
+| `first_open_at` | reduced | datetime | both |
+| `google_play_instant` | reduced | bool | android |
+| `install_begin_at` | reduced | datetime | android |
+| `installer_package` | reduced | string | android |
+| `is_emulator` | reduced | bool | both |
+| `is_hardware_id_real` | reduced | bool | both |
+| `os_version` | reduced | string | both |
+| `referrer_click_at` | reduced | datetime | android |
+| `referrer_install_version` | reduced | string | android |
+| `sdk_int` | reduced | int | android |
+| `android_id` | full | string | android |
+| `app_set_id` | full | string | android |
+| `app_set_id_scope` | full | string | android |
+| `brand` | full | string | both |
+| `cpu_abi` | full | string | android |
+| `cpu_type` | full | string | ios |
+| `device` | full | string | android |
+| `device_model` | full | string | both |
+| `hardware_concurrency` | full | int | both |
+| `idfv` | full | string | ios |
+| `manufacturer` | full | string | both |
+| `os_build_id` | full | string | both |
+| `pixel_ratio` | full | float | both |
+| `product` | full | string | android |
+| `screen_dpi` | full | int | both |
+| `screen_height` | full | int | both |
+| `screen_width` | full | int | both |
+| `webview_user_agent` | full | string | both |
 
 ## Dynamic signals
 
-| Field | Level | Type |
-| --- | --- | --- |
-| `att_status` | minimal | string |
-| `attribution_level` | minimal | string |
-| `collected_at` | minimal | datetime |
-| `last_opened_at` | minimal | datetime |
-| `session_id` | minimal | string |
-| `connection_type` | reduced | string |
-| `ios_reported_at` | reduced | string |
-| `language` | reduced | string |
-| `limit_ad_tracking` | reduced | bool |
-| `locale` | reduced | string |
-| `region` | reduced | string |
-| `timezone` | reduced | string |
-| `timezone_offset_min` | reduced | int |
-| `ui_mode_night` | reduced | bool |
-| `unidentified_device` | reduced | bool |
-| `idfa` | full | string |
-| `local_ip` | full | string |
+| Field | Level | Type | Platforms |
+| --- | --- | --- | --- |
+| `att_status` | minimal | string | ios |
+| `attribution_level` | minimal | string | both |
+| `collected_at` | minimal | datetime | both |
+| `last_opened_at` | minimal | datetime | both |
+| `session_id` | minimal | string | both |
+| `android_reported_at` | reduced | string | android |
+| `connection_type` | reduced | string | both |
+| `ios_reported_at` | reduced | string | ios |
+| `language` | reduced | string | both |
+| `limit_ad_tracking` | reduced | bool | both |
+| `locale` | reduced | string | both |
+| `region` | reduced | string | both |
+| `timezone` | reduced | string | both |
+| `timezone_offset_min` | reduced | int | both |
+| `ui_mode_night` | reduced | bool | both |
+| `unidentified_device` | reduced | bool | both |
+| `advertising_id` | full | string | android |
+| `device_carrier` | full | string | android |
+| `idfa` | full | string | ios |
+| `local_ip` | full | string | both |
 
-`idfa` is additionally gated by `DeeplinklyEnableIDFA` and authorized App
-Tracking Transparency status. It is absent by default even at `full`.
-
-## Changing the catalogue
-
-Update [`tool/signals.json`](../tool/signals.json) and regenerate
-`Sources/Deeplinkly/SignalCatalogue.swift` with the cross-repository catalogue
-tool. Keep this table in sync with the iOS entries in that source of truth and
-bump `catalogue_version` whenever the catalogue changes.
