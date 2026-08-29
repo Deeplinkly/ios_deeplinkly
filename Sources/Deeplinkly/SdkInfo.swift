@@ -11,7 +11,7 @@ import Foundation
 /// upgrade re-collects the device profile — which is what makes a signal added
 /// in a new release actually get collected on existing installs.
 enum SdkInfo {
-    static let version = "1.0.1"
+    static let version = "1.2.1"
     static let platform = "ios"
 
     /// Monotonic reference captured when the SDK initialised, held in memory only.

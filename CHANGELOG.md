@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.2.1 - 2026-08-30
+
+- `SdkInfo.version` reported `1.0.1` while the package was 1.2.0, so 1.2.0
+  misreports itself as 1.0.1 in `sdk_version` and in the static-profile stamp.
+  The constant is hand-maintained -- `CFBundleShortVersionString` resolves to
+  the host app in a static library -- and it was not bumped alongside the
+  podspec. `tool/check_version.rb` exists to catch exactly this and does; 1.2.0
+  was pushed without it.
+
+  CocoaPods archives are immutable, so 1.2.0 cannot be corrected. This release
+  supersedes it and there is no reason to use 1.2.0. No other change.
+
 ## 1.2.0 - 2026-08-27
 
 - Signal catalogue version 13. `setPIIHashingEnabled(true)` hashes the
