@@ -4,7 +4,7 @@ import XCTest
 
 /// The app-open rate limit.
 ///
-/// `TenantUser` is rewritten on every open and is the hottest write path in the
+/// the person's record is rewritten on every open and is the hottest write path in the
 /// product, so an unthrottled ping would multiply that by the number of
 /// foreground transitions per session. `shouldPing` is the whole throttle.
 final class AppOpenReporterTests: XCTestCase {
@@ -18,7 +18,7 @@ final class AppOpenReporterTests: XCTestCase {
         // Not because these tests stub a response — they assert the opposite —
         // but so "no request was made" is proven rather than reasoned. Every
         // request is claimed by the stub, so nothing can reach the production
-        // backend even if a guard regresses.
+        // service even if a guard regresses.
         StubURLProtocol.install()
     }
 

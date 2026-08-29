@@ -66,7 +66,7 @@ final class DynamicSignalsTests: XCTestCase {
     }
 
     /// True when we hold no durable identifier for this device at all — a
-    /// data-quality fact the backend would otherwise have to infer from the
+    /// data-quality fact the service would otherwise have to infer from the
     /// absence of keys it cannot tell apart from a level downgrade.
     func testUnidentifiedDeviceReflectsAnAbsentIdfv() {
         XCTAssertEqual(
@@ -117,7 +117,7 @@ final class DynamicSignalsTests: XCTestCase {
     }
 
     /// The timestamps are the SDK's own ISO-8601 shape — UTC, second
-    /// precision, `Z`-suffixed — and the backend parses them.
+    /// precision, `Z`-suffixed — and the service parses them.
     func testTimestampsAreUtcIso8601() {
         let stamp = DynamicSignals.collect()["last_opened_at"] ?? ""
         let pattern = "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"

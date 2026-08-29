@@ -15,6 +15,29 @@ enum EnrichmentSender {
     /// The source `setUserData`/`clearUserData` report under.
     static let userDataSource = "user_data"
 
+    /// The source `setConsent` reports under.
+    static let consentSource = "consent"
+
+    /// The source `setPushToken` reports under.
+    static let pushTokenSource = "push_token"
+
+    /// Sources whose dedupe key must include the payload's own content, and
+    /// which keys make up that content.
+    ///
+    /// A source is in here when the thing being reported is the payload rather
+    /// than the link — see ``dedupeKey(for:source:)``. Names come from the
+    /// owning type wherever it already publishes them, so a twelfth user field
+    /// or a fourth consent answer joins this automatically.
+    private static let contentKeyedSources: [String: [String]] = [
+        userDataSource: Array(DeeplinklyUserData.keys),
+        consentSource: [
+            ConsentStore.keyAdUserData,
+            ConsentStore.keyAdPersonalization,
+            ConsentStore.keyIsEEA,
+        ],
+        pushTokenSource: ["push_token", "push_provider"],
+    ]
+
     /// - Parameter attributionData: link identity only — click_id/code, source,
     ///   the UTMs, the ad-click ids. Device signals passed here are overwritten.
     /// - Parameter force: send even without attribution evidence. Used by
@@ -49,10 +72,16 @@ enum EnrichmentSender {
         //
         // Empty values are meaningful here and must survive — see
         // UserDataStore.clear.
-        for (key, value) in UserDataStore.get() { payload[key] = value }
+        // Hashed here, if the app asked for it, rather than in the store: what
+        // is kept on the device stays as supplied so the switch can be turned
+        // back off. The raw value still never leaves the device.
+        for (key, value) in PIIHashing.apply(UserDataStore.get()) { payload[key] = value }
+        // Consent and the push token are not read here: they are `dynamic`
+        // scope and come from DynamicSignals above, which is what keeps the
+        // catalogue's scope and the producing collector the same fact.
         for (key, value) in attributionData { payload[key] = value }
 
-        // Reported so the backend can tell a thin payload from a missing one.
+        // Reported so the service can tell a thin payload from a missing one.
         // Both must survive MINIMAL — explaining why a payload is small is the
         // one thing that stays useful at every level.
         payload["collected_at"] = iso8601(Date())
@@ -80,6 +109,7 @@ enum EnrichmentSender {
         let keys = [
             "click_id", "code", "utm_source", "utm_medium", "utm_campaign",
             "gclid", "fbclid", "ttclid", "gbraid", "wbraid",
+            "gad_source", "gad_campaignid",
         ]
         let hasAttr = keys.contains { (data[$0] ?? nil)?.isEmpty == false }
         guard hasAttr || force || isLifecycle else {
@@ -114,19 +144,22 @@ enum EnrichmentSender {
             ? "\(source)_enriched"
             : "\(source)_enriched_\(identity)"
 
-        // For this one source, the user data *is* what is being reported, so it
-        // has to be part of what makes two reports different. Without it, a
-        // second setUserData call under the same custom_user_id — adding an
-        // address to an email already sent, the common case — produces the same
-        // key as the first and is latched away, never reaching us.
+        // For these sources the payload *is* what is being reported, so its
+        // content has to be part of what makes two reports different. Without
+        // it, a second setUserData call under the same custom_user_id — adding
+        // an address to an email already sent, the common case — produces the
+        // same key as the first and is latched away, never reaching us. The
+        // same is true of a consent answer changing from granted to denied and
+        // of a rotated push token: exactly the updates that must not be dropped
+        // are the ones an identity-only key cannot tell apart.
         //
         // A digest rather than the values, because this string becomes the name
-        // of a UserDefaults key: writing someone's email address into one would
-        // put it somewhere neither clearUserData nor the tombstone can reach,
-        // and outside PrivacyData's inventory besides.
-        guard source == userDataSource else { return base }
+        // of a UserDefaults key: writing someone's email address — or a push
+        // token — into one would put it somewhere neither clearUserData nor the
+        // tombstone can reach, and outside PrivacyData's inventory besides.
+        guard let contentKeys = contentKeyedSources[source] else { return base }
         let fingerprint =
-            DeeplinklyUserData.keys
+            contentKeys
             .sorted()
             .compactMap { key -> String? in
                 guard let value = data[key] ?? nil else { return nil }

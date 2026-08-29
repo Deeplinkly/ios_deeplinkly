@@ -7,10 +7,10 @@ import XCTest
 /// iOS enforced none of this before the facade existed — the bridge trimmed the
 /// name, checked it was non-empty, and sent whatever else it was given. The
 /// public Dart API documented the full rule set as "enforced natively rather
-/// than here", so every one of these cases reached a production backend.
+/// than here", so every one of these cases reached a production service.
 ///
 /// Mirrors Android's `DeeplinklyEventTest`. The limits are asserted by the
-/// backend too, so a change here that is not made there starts silently
+/// service too, so a change here that is not made there starts silently
 /// truncating — which is why the numbers are spelled out rather than derived
 /// from the constants.
 final class DeeplinklyEventTests: XCTestCase {
@@ -81,7 +81,7 @@ final class DeeplinklyEventTests: XCTestCase {
             validate("e", [key: 1]), .badKey(key: key, why: "exceeds 64 characters"))
     }
 
-    /// The one rule with teeth beyond tidiness: the backend excludes this
+    /// The one rule with teeth beyond tidiness: the service excludes this
     /// prefix from the caller's 25-parameter budget, so a caller writing one
     /// both collides with the SDK's own bookkeeping and smuggles parameters
     /// past the count limit.
@@ -167,7 +167,7 @@ final class DeeplinklyEventTests: XCTestCase {
     }
 
     /// Containers are measured as their compact JSON encoding, because that is
-    /// what the backend stores and truncates — not by element count.
+    /// what the service stores and truncates — not by element count.
     func testAContainerIsMeasuredByItsEncodedLength() {
         // 60 four-character strings encode to well over 256 characters while
         // being only 60 elements.
@@ -231,7 +231,7 @@ final class DeeplinklyEventTests: XCTestCase {
 
     // MARK: - Limits
 
-    /// The backend asserts the same numbers. Changing one here without changing
+    /// The service asserts the same numbers. Changing one here without changing
     /// it there starts silently truncating, so they are pinned as literals
     /// rather than read from the constants they guard.
     func testTheDocumentedLimitsAreUnchanged() {
@@ -247,7 +247,7 @@ final class DeeplinklyEventTests: XCTestCase {
     /// `value` and `currency` are checked on the plain `logEvent` path, not only
     /// inside `DeeplinklyPurchase`. `logEvent` is public and untyped, so a
     /// caller who spells a purchase out by hand has to get the same answer as
-    /// one who used the wrapper — otherwise the backend's typed columns fill
+    /// one who used the wrapper — otherwise the service's typed columns fill
     /// with whatever the hand-rolled path felt like sending.
     func testAcceptsANumericValueAndAThreeLetterCurrency() {
         XCTAssertNil(

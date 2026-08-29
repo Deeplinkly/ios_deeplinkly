@@ -41,10 +41,29 @@ enum DynamicSignals {
         out["idfa"] = idfa
 
         // True when we hold no durable identifier for this device at all, which
-        // is a data-quality fact the backend would otherwise have to infer from
+        // is a data-quality fact the service would otherwise have to infer from
         // the absence of keys it cannot distinguish from a level downgrade.
         let hasIdfv = !(staticProfile["idfv"] ?? "").isEmpty
         out["unidentified_device"] = String(!hasIdfv && (idfa ?? "").isEmpty)
+
+        // The host app's own consent answers, and the push token that uninstall
+        // measurement runs on. Both are host-supplied rather than read off the
+        // device, but both are genuinely dynamic — a banner re-answered, a
+        // rotated token — so they belong here rather than in the static
+        // profile, which would report install-day state for months.
+        //
+        // Collected here rather than merged in EnrichmentSender so that the
+        // scope in the catalogue and the collector that produces the key stay
+        // the same fact. `SignalCoverageTests` enforces that, and caught these
+        // two when they were merged one layer up.
+        for (key, value) in ConsentStore.get() { out[key] = value }
+        for (key, value) in PushTokenStore.get() { out[key] = value }
+        // Emitted here rather than where the hashing happens, for the same
+        // reason: the key is `dynamic` in the catalogue, so a collector has to
+        // produce it or SignalCoverageTests fails. EnrichmentSender reads the
+        // same store when it decides whether to hash, so the flag and the
+        // payload cannot disagree.
+        out[PIIHashing.keyPIIHashingEnabled] = PIIHashing.isEnabled() ? "true" : "false"
 
         // --- locale and clock ---
         let locale = Locale.current

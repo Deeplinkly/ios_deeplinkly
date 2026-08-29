@@ -174,12 +174,12 @@ final class UserIdManagerTests: XCTestCase {
 
     /// `sendOnce`'s `source` parameter is used for the dedupe key and the
     /// lifecycle exemption, but is **never written into the payload** — it only
-    /// reaches the backend when a caller also puts it in `attributionData`.
+    /// reaches the service when a caller also puts it in `attributionData`.
     ///
     /// `DeepLinkHandler` and `StartupEnrichment` do; `UserIdManager` and
     /// `AppOpenReporter` pass an empty map, so their enrichments carry no
     /// `source` at all despite `source` being a catalogued minimal-tier signal.
-    /// Pinned as it behaves, and flagged: whether the backend wants a
+    /// Pinned as it behaves, and flagged: whether the service wants a
     /// `custom_user_id` or `app_open` enrichment labelled is a product
     /// question, not one to answer by quietly changing the payload.
     func testTheSourceParameterDoesNotReachThePayload() {

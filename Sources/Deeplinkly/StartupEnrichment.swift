@@ -56,7 +56,7 @@ enum StartupEnrichment {
     private static func hasAttributionData(_ attr: [String: Any]) -> Bool {
         let keys = [
             "click_id", "code", "utm_source", "gclid", "fbclid", "ttclid",
-            "gbraid", "wbraid",
+            "gbraid", "wbraid", "gad_source", "gad_campaignid",
         ]
         return keys.contains { !((attr[$0] as? String) ?? "").isEmpty }
     }

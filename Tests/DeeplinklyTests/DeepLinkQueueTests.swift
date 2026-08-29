@@ -45,7 +45,7 @@ final class DeepLinkQueueTests: XCTestCase {
     }
 
     /// The same link arriving through two paths is two entries, not one — the
-    /// source is what the backend stamps as `attribution_source`, so collapsing
+    /// source is what the service stamps as `attribution_source`, so collapsing
     /// them would lose which mechanism recovered the install.
     func testSourceIsPartOfIdentity() {
         XCTAssertNotEqual(

@@ -21,7 +21,7 @@ final class DeeplinklyPurchaseTests: XCTestCase {
         let result = build()
         XCTAssertNil(result.rejection)
         XCTAssertEqual(result.parameters?[DeeplinklyPurchase.keyCurrency] as? String, "USD")
-        // Not "49.99". The backend stores this as a Decimal, and a value that
+        // Not "49.99". The service stores this as a Decimal, and a value that
         // arrives as a string is one the JSON has already made ambiguous.
         XCTAssertEqual(result.parameters?[DeeplinklyPurchase.keyValue] as? Double, 49.99)
     }

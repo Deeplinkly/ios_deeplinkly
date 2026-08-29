@@ -88,7 +88,7 @@ final class DeepLinkHandlerTests: XCTestCase {
     }
 
     /// A custom scheme *with* a click id is ours — that is the shape of the
-    /// fallback the backend builds.
+    /// fallback the service builds.
     func testACustomSchemeWithAClickIdIsResolved() {
         StubURLProtocol.stub(DomainConfig.resolveClick, .ok(["click_id": "c1", "params": [:]]))
 
@@ -98,7 +98,7 @@ final class DeepLinkHandlerTests: XCTestCase {
     }
 
     /// The Universal Link bypass: the OS routed `https://<domain>/<code>`
-    /// straight to the app, so the backend never saw the click.
+    /// straight to the app, so the service never saw the click.
     func testAShortCodeOnALinkDomainIsResolved() {
         StubURLProtocol.stub(DomainConfig.resolveClick, .ok(["click_id": "c9", "params": [:]]))
 
@@ -162,7 +162,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         XCTAssertEqual(stored["source"] as? String, "deep_link")
     }
 
-    /// The source travels with the link all the way to the backend — without it
+    /// The source travels with the link all the way to the service — without it
     /// a deferred iOS install is filed as an install_referrer, which is not a
     /// thing on this platform.
     func testTheSourceIsCarriedIntoAttribution() {
@@ -190,7 +190,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         XCTAssertEqual(listener.count, 0, "a stale click was delivered")
     }
 
-    /// It is also not retried — a click id the backend does not know will not
+    /// It is also not retried — a click id the service does not know will not
     /// become known.
     func testAStaleResolveDropsTheQueueEntry() {
         StubURLProtocol.stub(
@@ -419,7 +419,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         waitUntil("queue drained") { DeepLinkQueue.all().isEmpty }
     }
 
-    /// The source is preserved across the relaunch, so the backend still learns
+    /// The source is preserved across the relaunch, so the service still learns
     /// which mechanism recovered the install.
     func testDrainPreservesTheOriginalSource() {
         DeepLinkQueue.enqueue(

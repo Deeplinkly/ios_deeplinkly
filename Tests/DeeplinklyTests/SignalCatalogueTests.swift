@@ -3,7 +3,7 @@ import XCTest
 @testable import Deeplinkly
 
 /// The generated catalogue is the single source of truth for what a consent
-/// choice means, shared with Android and the backend. These tests check the
+/// choice means, shared with Android and the service. These tests check the
 /// *rules* it encodes rather than restating the generated table — a test that
 /// re-listed every key would have to be regenerated alongside it and would
 /// catch nothing.
@@ -180,6 +180,30 @@ final class SignalCatalogueTests: XCTestCase {
         }
     }
 
+    /// Disk space is not readable on iOS, and this is not a preference.
+    ///
+    /// Catalogue 10 added `total_storage_gb` and `free_storage_gb` to fill the
+    /// two empty slots in Meta's 16-element `extinfo` array. Both are marked
+    /// Android-only in signals.json and the generator filters them out of this
+    /// file — but the generator is the thing that would be changed by anyone
+    /// "completing" the pair, so the constraint is asserted here as well.
+    ///
+    /// Every approved reason for `NSPrivacyAccessedAPICategoryDiskSpace`
+    /// carries the clause that the information, or anything derived from it,
+    /// may not be sent off-device. Reporting it is precisely sending it
+    /// off-device. The SDK briefly reported a coarse storage tier and it was
+    /// removed for this reason; the bundled privacy manifest records that.
+    /// `extinfo` stays two elements short on iOS permanently.
+    func testDiskSpaceIsNotInTheIosCatalogue() {
+        XCTAssertNil(SignalCatalogue.specs["total_storage_gb"])
+        XCTAssertNil(SignalCatalogue.specs["free_storage_gb"])
+        for key in SignalCatalogue.specs.keys {
+            XCTAssertFalse(
+                key.contains("storage") || key.contains("disk"),
+                "\(key) looks like a disk-space signal; iOS may not send one")
+        }
+    }
+
     /// `identity` names the link or user, never the device.
     /// Link identity, and nothing else.
     ///
@@ -196,6 +220,7 @@ final class SignalCatalogueTests: XCTestCase {
                 "click_id", "code", "source",
                 "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
                 "gclid", "fbclid", "ttclid", "gbraid", "wbraid",
+                "gad_source", "gad_campaignid",
             ])
     }
 
@@ -208,6 +233,7 @@ final class SignalCatalogueTests: XCTestCase {
                 "user_email", "user_phone", "user_first_name", "user_last_name",
                 "user_date_of_birth", "user_gender", "user_street", "user_city",
                 "user_state", "user_zip", "user_country",
+                "user_custom_data",
             ])
     }
 

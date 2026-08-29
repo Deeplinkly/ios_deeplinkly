@@ -254,7 +254,7 @@ final class NetworkSendTests: XCTestCase {
         XCTAssertEqual(response?["error_code"] as? String, "NO_URL")
     }
 
-    /// Surface the backend's own ER_0xx code where there is one — "ER_011"
+    /// Surface the service's own ER_0xx code where there is one — "ER_011"
     /// (billing paused) is actionable, "LINK_ERROR" is not.
     func testGenerateLinkSurfacesTheBackendErrorCode() {
         StubURLProtocol.stub(

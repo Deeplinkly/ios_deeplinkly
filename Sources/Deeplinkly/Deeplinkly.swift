@@ -129,6 +129,12 @@ public enum Deeplinkly {
 
         StartupEnrichment.schedule(apiKey: key)
 
+        // Apple sends no SKAdNetwork postback unless the advertised app
+        // registers, so without this the endpoint an app points
+        // NSAdvertisingAttributionReportEndpoint at receives nothing at all.
+        // See SkanRegistration for why the plist key alone is not enough.
+        SkanRegistration.register()
+
         // Pasteboard access has to happen on the main thread, and this is the
         // only deferred deep link channel iOS offers — see PasteboardHandler.
         DispatchQueue.main.async {
@@ -186,9 +192,19 @@ public enum Deeplinkly {
     /// Takes the link that arrived before initialisation, if one did and
     /// nothing has consumed it yet.
     ///
-    /// The Flutter bridge answers `getInitialUniversalLink` from this. A native
-    /// host does not need it: `initialize` flushes the same buffer through the
-    /// normal delivery path.
+    /// For adapter layers that resolve a cold-start URL themselves. Most hosts,
+    /// native and Flutter alike, should not call it: `initialize` flushes the
+    /// same buffer through the normal delivery path, and `SdkRuntime` holds the
+    /// result until a listener attaches — so the link arrives through
+    /// `setDeepLinkListener` either way.
+    ///
+    /// It drains the buffer, and `initialize` drains the same one, so exactly
+    /// one of the two delivers a given link. Calling this *before* `initialize`
+    /// therefore takes the link out of the normal path rather than duplicating
+    /// it, and whatever calls it owns delivery from that point. The Flutter
+    /// plugin used to expose this as `getInitialUniversalLink` and no Dart code
+    /// ever called it; the channel case was removed on 28 August 2026 rather
+    /// than left as a second consumer nobody was using.
     public static func takePendingLink() -> URL? {
         stateLock.lock()
         defer { stateLock.unlock() }
@@ -293,13 +309,24 @@ public enum Deeplinkly {
         city: String? = nil,
         state: String? = nil,
         zip: String? = nil,
-        country: String? = nil
+        country: String? = nil,
+        customData: [String: String?]? = nil
     ) -> Bool {
         stateLock.lock()
         let key = storedApiKey
         let ready = enabled
         stateLock.unlock()
         guard ready else { return false }
+
+        // Encoded before the rest so a bad dictionary rejects the whole call,
+        // which is the same all-or-nothing contract the twelve typed fields
+        // have.
+        let (encodedCustom, customRejection) =
+            DeeplinklyUserData.encodeCustomData(customData)
+        if let customRejection {
+            Logger.w("Rejected setUserData: \(customRejection.reason)")
+            return false
+        }
 
         let result = DeeplinklyUserData.normalizeAll([
             DeeplinklyUserData.keyEmail: email,
@@ -313,6 +340,7 @@ public enum Deeplinkly {
             DeeplinklyUserData.keyState: state,
             DeeplinklyUserData.keyZip: zip,
             DeeplinklyUserData.keyCountry: country,
+            DeeplinklyUserData.keyCustomData: encodedCustom,
         ])
         if let rejection = result.rejection {
             Logger.w("Rejected setUserData: \(rejection.reason)")
@@ -350,7 +378,7 @@ public enum Deeplinkly {
     /// Call it on sign-out, or when someone withdraws consent. Unlike letting
     /// the values simply stop being sent, this actively erases them: the next
     /// enrichment carries each previously-set field as an empty value, which the
-    /// backend reads as "null this column" rather than "not reported".
+    /// service reads as "null this column" rather than "not reported".
     ///
     /// The erasure is re-sent until it is delivered, so calling this on a device
     /// that is offline still takes effect once it is not.
@@ -375,7 +403,7 @@ public enum Deeplinkly {
 
     /// Logs a custom event.
     ///
-    /// `completion` receives true only when the backend accepted it.
+    /// `completion` receives true only when the service accepted it.
     /// Validation failures answer false without a network call; see
     /// `DeeplinklyEvent` for the rules.
     public static func logEvent(
@@ -402,7 +430,7 @@ public enum Deeplinkly {
         var params = parameters
         // One id per call, and the same id on every replay of it: the retry
         // queue stores the payload built here, so an event that was delivered
-        // but whose response was lost comes back carrying the id the backend
+        // but whose response was lost comes back carrying the id the service
         // already has and is refused as the duplicate it is. Meta CAPI's
         // `event_id` wants the same value.
         params["_dl_event_id"] = UUID().uuidString
@@ -451,7 +479,7 @@ public enum Deeplinkly {
     ///     forwarded conversion against your own records.
     ///   - parameters: anything else you want on the event. May not contain the
     ///     keys this method sets.
-    ///   - completion: receives true only when the backend accepted the event.
+    ///   - completion: receives true only when the service accepted the event.
     public static func logPurchase(
         value: Double,
         currency: String,
@@ -579,9 +607,187 @@ public enum Deeplinkly {
         AttributionLevel.current
     }
 
+    // MARK: - Consent
+
+    /// Reports the person's advertising-consent answers.
+    ///
+    /// These travel with every enrichment and are attached to conversions when
+    /// they are forwarded to an ad network. Google requires both `adUserData`
+    /// and `adPersonalization` to be ``ConsentState/granted`` before a
+    /// conversion for an EEA or UK user may be used, and treats an absent
+    /// answer differently from an explicit ``ConsentState/unknown`` — so report
+    /// what you actually know rather than defaulting.
+    ///
+    /// ## What this does and does not do
+    ///
+    /// This records what the person agreed to *with your ad networks*. It does
+    /// not change what the SDK collects — ``setAttributionLevel(_:)`` is that
+    /// control, and the two are independent on purpose: an app can hold consent
+    /// to describe the device while holding none to personalise ads on it, and
+    /// the reverse.
+    ///
+    /// It is also unrelated to App Tracking Transparency. ATT governs the
+    /// IDFA; this governs what may be done with a conversion once it is
+    /// measured. An app needs to answer both questions, and the answers can
+    /// differ.
+    ///
+    /// Consent survives sign-out and survives a restore onto a new device.
+    /// ``clearUserData()`` does not touch it: signing out is not withdrawing
+    /// consent. To record a withdrawal, call this again with
+    /// ``ConsentState/denied`` — a value the forwarder acts on, where simply
+    /// forgetting the answer would read as "this app has no consent model" and
+    /// is a weaker statement, not a stronger one.
+    ///
+    /// ## Merging
+    ///
+    /// Each call merges. An argument left nil is left as it was, so you can
+    /// report the EEA determination at launch and the two answers when your
+    /// banner is answered. Re-reporting an unchanged answer costs nothing — it
+    /// is detected and no enrichment is sent.
+    ///
+    /// - Parameters:
+    ///   - adUserData: whether user data may be sent to ad networks for
+    ///     measurement. Google Consent Mode's `ad_user_data`.
+    ///   - adPersonalization: whether that data may be used to personalise
+    ///     advertising. Google Consent Mode's `ad_personalization`.
+    ///   - isEEA: whether you consider this person in scope for GDPR. Your app
+    ///     knows this; we do not, and a geo-IP guess is not a consent record.
+    /// - Returns: false only if the SDK is not initialised.
+    @discardableResult
+    public static func setConsent(
+        adUserData: ConsentState? = nil,
+        adPersonalization: ConsentState? = nil,
+        isEEA: Bool? = nil
+    ) -> Bool {
+        stateLock.lock()
+        let key = storedApiKey
+        let ready = enabled
+        stateLock.unlock()
+        guard ready else { return false }
+
+        // Nothing changed: the banner reported the same answer it did last
+        // launch, which is the common case. Storing it again is harmless;
+        // sending an enrichment for it every time is not.
+        guard
+            ConsentStore.merge(
+                adUserData: adUserData,
+                adPersonalization: adPersonalization,
+                isEEA: isEEA)
+        else { return true }
+
+        // force, for the reason setUserData forces: a consent answer has
+        // nothing to do with whether a link brought this person here, and
+        // gating it on attribution evidence would mean organic installs never
+        // reported consent at all.
+        EnrichmentSender.sendOnce(
+            attributionData: [:],
+            source: EnrichmentSender.consentSource,
+            apiKey: key,
+            force: true
+        )
+        return true
+    }
+
+    // MARK: - Push token / uninstall measurement
+
+    /// Supplies the device's push token so uninstalls can be measured.
+    ///
+    /// Neither iOS nor Android notifies a server when an app is removed. Every
+    /// measurement provider detects it the same way: send a silent, contentless
+    /// push periodically and read the failure — APNs answers 410 once the app
+    /// is gone. Handing us the token is the whole of the app's part; nothing is
+    /// displayed to the user, and a background content-available push needs no
+    /// notification permission.
+    ///
+    /// Call it from
+    /// `application(_:didRegisterForRemoteNotificationsWithDeviceToken:)`, or
+    /// with the FCM token from `messaging(_:didReceiveRegistrationToken:)` if
+    /// you use Firebase — passing ``PushProvider/fcm`` in that case, since the
+    /// prober has to know which service the token addresses.
+    ///
+    /// ```swift
+    /// func application(
+    ///     _ application: UIApplication,
+    ///     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+    /// ) {
+    ///     let token = deviceToken.map { String(format: "%02x", $0) }.joined()
+    ///     Deeplinkly.setPushToken(token)
+    /// }
+    /// ```
+    ///
+    /// ## Level
+    ///
+    /// `push_token` is a `full`-tier signal: a unique, stable, per-install
+    /// identifier a server can address, which is what that tier means. An app
+    /// running at ``AttributionLevel/reduced`` or below does not report it and
+    /// does not get uninstall numbers. That is the level working as documented,
+    /// not a defect.
+    ///
+    /// Pass nil to forget the token — for instance when the person turns push
+    /// off entirely.
+    ///
+    /// - Returns: false only if the SDK is not initialised.
+    @discardableResult
+    public static func setPushToken(_ token: String?, provider: PushProvider = .apns) -> Bool {
+        stateLock.lock()
+        let key = storedApiKey
+        let ready = enabled
+        stateLock.unlock()
+        guard ready else { return false }
+
+        guard PushTokenStore.set(token, provider: provider) else { return true }
+
+        EnrichmentSender.sendOnce(
+            attributionData: [:],
+            source: EnrichmentSender.pushTokenSource,
+            apiKey: key,
+            force: true
+        )
+        return true
+    }
+
     // MARK: - Debug
 
     /// Turns on verbose console output under the `Deeplinkly` tag.
+    /// Hash the identifying fields on this device before they are sent.
+    ///
+    /// Off by default. With it on, `user_email`, `user_phone`,
+    /// `user_first_name` and `user_last_name` are SHA-256 hashed here and the
+    /// plaintext never leaves the device. Everything else is unaffected, and
+    /// what is stored locally is still what you supplied, so turning this back
+    /// off restores the previous behaviour.
+    ///
+    /// **This costs attribution quality, and the trade is yours to make.** A
+    /// digest is computed once, under one normalisation, and advertising
+    /// destinations do not agree about phone formatting — so a conversion
+    /// forwarded to a destination whose rules differ will not match. Without
+    /// hashing the service normalises per destination from the value you sent;
+    /// with it, that value is gone and it cannot. Enable this when a compliance
+    /// requirement says plaintext must not reach a processor, not by default.
+    ///
+    /// Phone numbers are normalised by discarding non-digits. That folds
+    /// `+44 20 7946 0000` and `442079460000` together but does not understand
+    /// trunk prefixes, so send one consistent format.
+    ///
+    /// Only the four fields above are hashed. Gender, country and date of birth
+    /// are not: their value ranges are small enough to reverse a digest by
+    /// enumeration, so hashing them would cost storage and buy nothing.
+    @discardableResult
+    public static func setPIIHashingEnabled(_ enabled: Bool) -> Bool {
+        stateLock.lock()
+        // Self.enabled, not `enabled`: the parameter shadows the SDK's own
+        // ready flag here.
+        let ready = Self.enabled
+        stateLock.unlock()
+        guard ready else { return false }
+        PIIHashing.setEnabled(enabled)
+        Logger.d("PII hashing \(enabled ? "enabled" : "disabled")")
+        return true
+    }
+
+    /// Whether ``setPIIHashingEnabled(_:)`` is on. Off unless it was turned on.
+    public static func isPIIHashingEnabled() -> Bool { PIIHashing.isEnabled() }
+
     public static func setDebugMode(_ enabled: Bool) {
         Logger.setDebugMode(enabled)
     }

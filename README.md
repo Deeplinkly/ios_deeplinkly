@@ -270,17 +270,32 @@ On iOS 16 and later, a native `UIPasteControl` can give users a banner-free
 control's item providers to `Deeplinkly.handlePaste(itemProviders:completion:)`.
 The detailed guide includes a ready-to-use UIKit implementation.
 
-## Privacy manifests and IDFA
+## Privacy manifests, IDFA, and conversion forwarding
 
 SwiftPM and CocoaPods include the SDK's required-reason privacy manifest
-automatically. The default SDK configuration does not collect IDFA and never
-requests App Tracking Transparency permission.
+automatically. It declares what the default configuration collects — including
+the contact details `setUserData()` accepts, which are declared whether or not
+your app ever calls it. The default configuration does not collect IDFA, never
+requests App Tracking Transparency permission, and makes no tracking claim.
 
-IDFA collection is opt-in with `DeeplinklyEnableIDFA`. If enabled, the host app
-must add `NSUserTrackingUsageDescription`, request ATT permission itself, and
-merge [`Sources/Deeplinkly/Resources/IDFA/PrivacyInfo.xcprivacy`](Sources/Deeplinkly/Resources/IDFA/PrivacyInfo.xcprivacy)
-into its own privacy manifest. The SDK reads IDFA only after the user has
-authorized tracking.
+Two opt-ins change that, and each ships a template to merge into your own app's
+`PrivacyInfo.xcprivacy`. They are independent: an app may need both, either, or
+neither. Neither template is bundled, deliberately — Xcode aggregates every
+bundled manifest into the containing app's privacy report, so a tracking
+declaration inside the SDK would be made on behalf of every app that embeds it.
+
+- **IDFA**, opt-in with `DeeplinklyEnableIDFA`. Add
+  `NSUserTrackingUsageDescription`, request ATT permission yourself, and merge
+  [`Sources/Deeplinkly/Resources/IDFA/PrivacyInfo.xcprivacy`](Sources/Deeplinkly/Resources/IDFA/PrivacyInfo.xcprivacy).
+  The SDK reads IDFA only after the user has authorized tracking.
+- **Conversion forwarding to Meta or Google**, enabled on your Deeplinkly
+  account rather than in code. Forwarding joins your data with data those
+  companies hold from other apps, which is ATT's definition of tracking — for
+  hashed values as much as raw ones, and regardless of the forwarding happening
+  on our servers rather than in your app. Merge
+  [`Sources/Deeplinkly/Resources/ConversionForwarding/PrivacyInfo.xcprivacy`](Sources/Deeplinkly/Resources/ConversionForwarding/PrivacyInfo.xcprivacy),
+  add the ATT prompt, and move those types to **Data Used to Track You** in your
+  App Store privacy labels.
 
 ## Documentation
 
@@ -306,7 +321,7 @@ xcodebuild test -scheme Deeplinkly \
 ```
 
 Swift-package XCTest bundles do not receive an app Keychain access group, so
-the package tests opt into a process-memory Keychain backend. Production always
+the package tests opt into a process-memory Keychain service. Production always
 uses Security.framework Keychain storage.
 
 ## Support

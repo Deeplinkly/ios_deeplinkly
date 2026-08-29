@@ -53,10 +53,10 @@ enum LinkDomains {
     /// A link that came through the redirect always carries a `click_id`, so
     /// the code is only ever needed for the App Link / Universal Link bypass:
     /// the OS routing `https://<link domain>/<code>` straight to the app, which
-    /// means the backend never saw the click and has no ClickEvent for it yet.
+    /// means the service never saw the click and has no a click record for it yet.
     ///
     /// Treating *any* first path segment as a code — which is what iOS used to
-    /// do — meant every URL the app opened was resolved against the backend.
+    /// do — meant every URL the app opened was resolved against the service.
     /// For an app with its own custom-scheme routes,
     /// `myapp://settings/notifications` was resolved as code "notifications",
     /// came back 404, and the failure branch delivers a fallback: opening an
@@ -65,7 +65,7 @@ enum LinkDomains {
     /// attempted codes.
     ///
     /// Custom schemes are therefore out, and they lose nothing — the fallback
-    /// the backend builds is `<scheme>://open?click_id=…`, which is matched on
+    /// the service builds is `<scheme>://open?click_id=…`, which is matched on
     /// the click id and has no path segment to read anyway.
     ///
     /// Permissive when no domains are configured, matching Android: the URL

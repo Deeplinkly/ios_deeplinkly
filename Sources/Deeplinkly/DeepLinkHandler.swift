@@ -2,14 +2,25 @@
 import Foundation
 
 enum DeepLinkHandler {
-    /// Matches Android's `resolveClickWithRetry(maxRetries = 2, initialDelayMs = 50)`.
+    /// Does **not** match Android, despite what this comment claimed until
+    /// 28 August 2026. Android's call sites pass
+    /// `resolveClickWithRetry(maxRetries = 2, initialDelayMs = 50)` and its
+    /// `repeat(maxRetries)` makes 2 attempts with one 50ms gap. iOS makes 3,
+    /// backing off 50ms then 100ms — one more request and 100ms more latency
+    /// before a link is delivered from the fallback.
+    ///
+    /// The initial delay does match; only the attempt count does not. Left as
+    /// it is rather than quietly changed: which number is right is a product
+    /// question about how long a cold start may block on a resolve, and it
+    /// should be answered once for both platforms rather than settled by
+    /// whichever file someone edited.
     private static let maxAttempts = 3
     private static let initialRetryDelay: TimeInterval = 0.05
 
     /// - Parameter source: how this link reached us. "deep_link" for a Universal
     ///   Link or custom scheme, "clipboard" for the deferred pasteboard path.
-    ///   The backend reads it off the enrichment payload to stamp
-    ///   `ClickEvent.attribution_source` — without it a deferred iOS install is
+    ///   The service reads it off the enrichment payload to stamp
+    ///   the recorded attribution source — without it a deferred iOS install is
     ///   filed as an install_referrer, which is not a thing on this platform.
     static func handle(
         url: URL,

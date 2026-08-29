@@ -470,7 +470,7 @@ nothing is stored — so you never have to guess which of the values took.
 Values are sent as you supply them and hashed only when a conversion is
 forwarded. On-device hashing would look safer and buy nothing: the digest of a
 normalised email is exactly the value Meta matches on, so anyone holding it
-holds the match key. Keeping the plaintext is also what lets the backend
+holds the match key. Keeping the plaintext is also what lets the service
 normalise per destination, which Meta and Google disagree about.
 
 Supply only what your own privacy policy and consent flow allow — the SDK
@@ -495,7 +495,7 @@ Deeplinkly.clearUserData()
 ```
 
 This is not merely "stop sending": the next enrichment reports each
-previously-set field as empty, which the backend reads as "null this column".
+previously-set field as empty, which the service reads as "null this column".
 The erasure is re-sent until it is delivered, so calling it on a device that is
 offline still takes effect once it is not. `PrivacyData.reset()` removes the
 local store as well.
@@ -569,7 +569,7 @@ Validation rules:
 - `value` must be a non-negative finite number and `currency` a three-letter
   ISO-4217 code, wherever either appears. They are ordinary parameters
   otherwise — they cost a parameter and you see them in your dashboard — but
-  the backend also lifts them into typed columns, which is what a conversion
+  the service also lifts them into typed columns, which is what a conversion
   forwarder reads.
 - Values may be strings, numbers, booleans, JSON-compatible arrays, or
   string-keyed JSON-compatible dictionaries.
@@ -620,7 +620,7 @@ it is how you reconcile a forwarded conversion against your own records.
 Every event, purchase or not, also carries a client-generated event id. It is
 Meta CAPI's `event_id`, and it is what makes a replay off the retry queue
 idempotent: an event that was delivered but whose response was lost comes back
-carrying an id the backend already has, and is refused rather than counted
+carrying an id the service already has, and is refused rather than counted
 twice.
 
 ## Generate a link
@@ -670,7 +670,7 @@ and always receive a result map.
 | `Deeplinkly.version` | Native SDK version |
 | `Deeplinkly.setDeepLinkListener(_:)` | Attach or detach the resolved-link listener |
 | `Deeplinkly.handleLink(_:)` | Forward an incoming Universal Link or custom-scheme URL |
-| `Deeplinkly.takePendingLink()` | Remove and return a pre-initialization URL, primarily for adapter layers |
+| `Deeplinkly.takePendingLink()` | Remove and return a pre-initialization URL, for adapter layers that deliver it themselves |
 | `Deeplinkly.onForeground()` | Manually request the rate-limited app-open reporting path |
 | `Deeplinkly.shutdown()` | Detach the listener |
 | `Deeplinkly.getInstallAttribution()` | Read the persisted first-touch attribution map |
@@ -693,8 +693,11 @@ and always receive a result map.
 
 `initialize(apiKey:)` is useful when the key comes from build configuration or
 another app-owned source. Initialization is idempotent, so the first call wins.
-Native apps normally do not need `takePendingLink()`: `initialize` automatically
-flushes the same buffered URL through the listener.
+Hosts normally do not need `takePendingLink()`: `initialize` automatically
+flushes the same buffered URL through the listener, and the SDK holds it there
+until a listener attaches. Because both drain one buffer, calling it takes the
+link *out* of that path rather than seeing a copy of it — so call it only if the
+calling layer is going to deliver the link itself.
 
 ## Debugging and lifecycle
 
@@ -741,6 +744,86 @@ is off by default. To opt in:
 The SDK collects IDFA only when all of the following are true: the build-time
 flag is enabled, the current attribution level permits the field, and ATT
 status is `authorized`.
+
+### Conversion forwarding
+
+If conversion forwarding to Meta or Google is enabled for your Deeplinkly
+account, the app's privacy position changes even though its code does not.
+Forwarding joins the data with data those companies hold from other apps and
+websites, which is what ATT defines as tracking. It applies to hashed values as
+well as raw ones — a hashed email is matched against the destination's copy of
+the same hash, which is both what makes it useful and what makes it tracking —
+and it applies even though the forwarding happens on Deeplinkly's servers
+rather than in the app. What the app collects and transmits is what it
+declares; where the join happens does not change the purpose.
+
+1. Merge the declarations from
+   [`../Sources/Deeplinkly/Resources/ConversionForwarding/PrivacyInfo.xcprivacy`](../Sources/Deeplinkly/Resources/ConversionForwarding/PrivacyInfo.xcprivacy)
+   into the app's privacy manifest.
+2. Add `NSUserTrackingUsageDescription` to Info.plist and request authorization
+   with `ATTrackingManager`. Apple requires an ATT prompt to justify a tracking
+   declaration, and the SDK never prompts in any configuration.
+3. Move those data types to **Data Used to Track You** in the App Store privacy
+   labels. That section is separate from **Data Linked to You** and is not
+   filled in from the manifest.
+4. Say so in the app's own privacy policy before the first conversion is
+   forwarded.
+
+Steps 3 and 4 are editable without a release. Steps 1 and 2 are compiled into
+the build, so they have to be in the build that ships before forwarding is
+switched on.
+
+Only do this if forwarding is actually enabled. Declaring tracking an app does
+not do costs it the ATT prompt and the label for nothing.
+
+## SKAdNetwork postbacks
+
+Apple sends the winning SKAdNetwork postback to the **ad network**, not to the
+advertiser. The advertiser's own copy arrives only if the app declares an
+endpoint for it, and that declaration is compiled into the build — it cannot be
+added remotely, changed by a Deeplinkly setting, or turned on later without
+shipping a new version.
+
+For iOS users who deny App Tracking Transparency, this is the only
+Apple-sanctioned install measurement path there is. If the key is missing, those
+installs are unmeasurable for the life of the build.
+
+Add to Info.plist, using the same Deeplinkly domain the app's Universal Links
+use:
+
+```xml
+<key>NSAdvertisingAttributionReportEndpoint</key>
+<string>https://links.example.com</string>
+```
+
+The domain only. Apple appends the rest of the path itself and POSTs to
+`/.well-known/skadnetwork/report-attribution`, which Deeplinkly serves on every
+verified domain.
+
+Nothing else is needed. `initialize()` registers the install with SKAdNetwork
+for you — Apple sends no postback at all unless the advertised app registers on
+launch, so the key above is an address and this is what causes anything to be
+sent to it. **Do not call `SKAdNetwork.registerAppForAdNetworkAttribution()` or
+`updatePostbackConversionValue(_:)` yourself**; a second registration can reset
+the measurement window. Registration is skipped while tracking is disabled via
+`resetPrivacyData()` or `setTrackingDisabled(true)`, and is not affected by the
+attribution level — a SKAdNetwork postback is Apple's own aggregate and carries
+no device data.
+
+Two notes worth having before you rely on it:
+
+- **Add the key even if you are not ready to use SKAdNetwork.** It costs
+  nothing when unused and cannot be added between releases. Leaving it out is
+  the decision that is expensive to reverse.
+- **Conversion values are not set.** The SDK registers and leaves the value
+  unset, which Apple supports: `conversion-value` is absent from the postback
+  while campaign, win status and redownload still arrive. Post-install value
+  measurement through SKAdNetwork is not implemented.
+- **Postbacks are campaign-level, delayed and thresholded.** Apple sends them
+  hours to days after the install, identifies the campaign by number rather
+  than name, and withholds the conversion value entirely when a campaign is
+  below its crowd-anonymity threshold. A campaign with a null conversion value
+  is normal at low volume, not a misconfiguration.
 
 ## Troubleshooting
 

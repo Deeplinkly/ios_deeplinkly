@@ -14,7 +14,7 @@ enum UserIdManager {
         // Optional: log it
         Logger.d("UserIdManager: updated custom user ID → \(newId ?? "nil")")
 
-        // Link the id to the TenantUser now. force: linking a login has nothing
+        // Link the id to the the person's record now. force: linking a login has nothing
         // to do with attribution, so it must not be gated on a UTM being
         // present — a user who installed the app organically would otherwise
         // never be linked at all.

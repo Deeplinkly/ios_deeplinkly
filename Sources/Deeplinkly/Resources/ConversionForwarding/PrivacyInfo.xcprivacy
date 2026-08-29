@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  ADDITIONAL declarations for apps whose Deeplinkly account forwards
+	  conversions to Meta or Google. This file is NOT bundled by the pod or the
+	  Swift package: it is a template to merge into your own app's
+	  PrivacyInfo.xcprivacy, alongside the SDK's default manifest rather than
+	  instead of it. Resources/IDFA/PrivacyInfo.xcprivacy is the same pattern
+	  for a different opt-in, and the two are independent — an app may need
+	  both, either, or neither.
+
+	  WHY FORWARDING CHANGES THE ANSWER
+
+	  The SDK's default manifest declares NSPrivacyTracking=false, on the
+	  grounds that attribution is scoped to one tenant's own links and app and
+	  is therefore first-party. Forwarding a conversion ends that. The moment an
+	  event is sent to a Meta dataset or a Google conversion action, it is
+	  joined with data those companies hold from other apps and websites, which
+	  is precisely ATT's definition of tracking. It is true of hashed values as
+	  well as raw ones: Apple's data-type classification does not turn on
+	  hashing, and a hashed email is matched against Meta's copy of the same
+	  hash — that is what makes it useful and what makes it tracking.
+
+	  It also does not matter that the forwarding happens on Deeplinkly's
+	  servers rather than in your app. What the app collects and transmits is
+	  what it declares; where the join happens does not change the purpose the
+	  data was collected for.
+
+	  IF FORWARDING IS ENABLED FOR YOUR ACCOUNT YOU MUST ALSO:
+	    1. Merge the keys below into your app's PrivacyInfo.xcprivacy.
+	    2. Add NSUserTrackingUsageDescription to your Info.plist and call
+	       ATTrackingManager.requestTrackingAuthorization yourself. Apple
+	       requires an ATT prompt to justify a tracking declaration. The SDK
+	       never prompts, in any configuration.
+	    3. Update your App Store privacy labels: these types move to "Data Used
+	       to Track You", which is a separate section from "Data Linked to You"
+	       and is not filled in for you by the manifest.
+	    4. Say so in your own privacy policy before the first conversion is
+	       forwarded.
+
+	  Steps 3 and 4 are editable without a release. Steps 1 and 2 are compiled
+	  into your build.
+
+	  Only merge this if forwarding is actually on. Declaring tracking an app
+	  does not do costs it the ATT prompt and the label for nothing.
+	-->
+	<key>NSPrivacyTracking</key>
+	<true/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array>
+		<string>deeplinkly.com</string>
+	</array>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array>
+		<dict>
+			<!-- user_email, forwarded as Meta's `em` / Google's hashed email -->
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeEmailAddress</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeThirdPartyAdvertising</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+		<dict>
+			<!-- user_phone, forwarded as `ph` -->
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypePhoneNumber</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeThirdPartyAdvertising</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+		<dict>
+			<!-- user_first_name, user_last_name, forwarded as `fn` / `ln` -->
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeName</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeThirdPartyAdvertising</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+		<dict>
+			<!--
+			  user_street, user_city, user_state, user_zip, user_country,
+			  forwarded as `ct` / `st` / `zp` / `country`.
+			-->
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypePhysicalAddress</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeThirdPartyAdvertising</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+		<dict>
+			<!--
+			  custom_user_id, forwarded as Meta's `external_id`. This is a match
+			  key like the others once it leaves for a destination, which is why
+			  it is listed here and not only in the default manifest.
+			-->
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeUserID</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeThirdPartyAdvertising</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+		<dict>
+			<!--
+			  user_date_of_birth and user_gender, forwarded as `db` and `ge`.
+			  Under the catch-all for the same reason as in the default
+			  manifest: Apple publishes no more specific type for either.
+			-->
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeOtherDataTypes</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeThirdPartyAdvertising</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+		<dict>
+			<!--
+			  The conversion itself: the event name from logEvent(), and the
+			  deep link open that preceded it. This is the payload, not a match
+			  key, and it is the reason the rest is being sent.
+			-->
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeProductInteraction</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeThirdPartyAdvertising</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+		<dict>
+			<!--
+			  logPurchase(), and any logEvent() carrying the reserved `value`
+			  and `currency` keys. Only if your app reports revenue; drop this
+			  entry if it does not.
+			-->
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypePurchaseHistory</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeThirdPartyAdvertising</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

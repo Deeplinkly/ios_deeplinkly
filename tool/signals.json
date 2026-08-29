@@ -5,7 +5,7 @@
     "Generated into three platform files by `dart run tool/gen_signals.dart`:",
     "  <android-sdk>/deeplinkly/src/main/kotlin/com/deeplinkly/android_deeplinkly/privacy/SignalCatalogue.kt",
     "  <ios-sdk>/Sources/Deeplinkly/SignalCatalogue.swift",
-    "  <backend>/links/signal_catalogue.py",
+    "  the service's own catalogue module",
     "Run `dart run tool/gen_signals.dart --check` in CI to prove they are in sync.",
     "",
     "tier  = the LOWEST AttributionLevel at which the key still ships.",
@@ -34,7 +34,7 @@
     "collected on devices whose app version did not change."
   ],
 
-  "catalogue_version": 9,
+  "catalogue_version": 13,
 
   "signals": {
     "deeplinkly_device_id":  { "tier": "minimal", "scope": "static",   "type": "string" },
@@ -79,6 +79,8 @@
     "screen_dpi":            { "tier": "full",    "scope": "static",   "type": "int" },
     "pixel_ratio":           { "tier": "full",    "scope": "static",   "type": "float" },
     "hardware_concurrency":  { "tier": "full",    "scope": "static",   "type": "int" },
+    "total_storage_gb":      { "tier": "full",    "scope": "static",   "type": "int",
+                               "platforms": ["android"] },
     "cpu_abi":               { "tier": "full",    "scope": "static",   "type": "string",
                                "platforms": ["android"] },
     "cpu_type":              { "tier": "full",    "scope": "static",   "type": "string",
@@ -101,6 +103,11 @@
     "attribution_level":     { "tier": "minimal", "scope": "dynamic",  "type": "string" },
     "att_status":            { "tier": "minimal", "scope": "dynamic",  "type": "string",
                                "platforms": ["ios"] },
+    "consent_ad_user_data":  { "tier": "minimal", "scope": "dynamic",  "type": "string",
+                               "max_len": 8 },
+    "consent_ad_personalization": { "tier": "minimal", "scope": "dynamic", "type": "string",
+                               "max_len": 8 },
+    "consent_is_eea":        { "tier": "minimal", "scope": "dynamic",  "type": "bool" },
     "android_reported_at":   { "tier": "reduced", "scope": "dynamic",  "type": "string",
                                "platforms": ["android"] },
     "ios_reported_at":       { "tier": "reduced", "scope": "dynamic",  "type": "string",
@@ -122,6 +129,12 @@
                                "platforms": ["android"] },
     "local_ip":              { "tier": "full",    "scope": "dynamic",  "type": "string",
                                "max_len": 64 },
+    "free_storage_gb":       { "tier": "full",    "scope": "dynamic",  "type": "int",
+                               "platforms": ["android"] },
+    "push_token":            { "tier": "full",    "scope": "dynamic",  "type": "string",
+                               "max_len": 512 },
+    "push_provider":         { "tier": "full",    "scope": "dynamic",  "type": "string",
+                               "max_len": 8 },
 
     "click_id":              { "tier": "minimal", "scope": "identity", "type": "string" },
     "code":                  { "tier": "minimal", "scope": "identity", "type": "string" },
@@ -138,12 +151,14 @@
     "ttclid":                { "tier": "reduced", "scope": "identity", "type": "string" },
     "gbraid":                { "tier": "reduced", "scope": "identity", "type": "string" },
     "wbraid":                { "tier": "reduced", "scope": "identity", "type": "string" },
+    "gad_source":            { "tier": "reduced", "scope": "identity", "type": "string" },
+    "gad_campaignid":        { "tier": "reduced", "scope": "identity", "type": "string" },
 
     "custom_user_id":        { "tier": "minimal", "scope": "user",     "type": "string" },
     "user_email":            { "tier": "minimal", "scope": "user",     "type": "string",
                                "max_len": 320 },
     "user_phone":            { "tier": "minimal", "scope": "user",     "type": "string",
-                               "max_len": 32 },
+                               "max_len": 64 },
     "user_first_name":       { "tier": "minimal", "scope": "user",     "type": "string",
                                "max_len": 128 },
     "user_last_name":        { "tier": "minimal", "scope": "user",     "type": "string",
@@ -161,6 +176,9 @@
     "user_zip":              { "tier": "minimal", "scope": "user",     "type": "string",
                                "max_len": 32 },
     "user_country":          { "tier": "minimal", "scope": "user",     "type": "string",
-                               "max_len": 2 }
+                               "max_len": 2 },
+    "user_custom_data":      { "tier": "minimal", "scope": "user",     "type": "string",
+                               "max_len": 4096 },
+    "pii_hashing_enabled":   { "tier": "minimal", "scope": "dynamic",  "type": "bool" }
   }
 }

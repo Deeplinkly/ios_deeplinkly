@@ -18,7 +18,7 @@ final class DeeplinklyUserDataTests: XCTestCase {
             DeeplinklyUserData.keyEmail, "  Ada@Example.COM ")
         XCTAssertNil(rejection)
         // Not lowercased. Lowercasing is Meta's rule, not a fact about the
-        // address, and the backend can apply it per destination only if we did
+        // address, and the service can apply it per destination only if we did
         // not already throw the original away.
         XCTAssertEqual(value, "Ada@Example.COM")
     }

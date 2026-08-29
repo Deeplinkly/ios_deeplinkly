@@ -6,11 +6,11 @@ import XCTest
 ///
 /// `SignalCatalogue.allows` is fail-closed, so a signal a collector emits but
 /// nobody catalogued is dropped **silently, at every level including full** —
-/// no error, no log, just a field that never reaches the backend. Nothing else
+/// no error, no log, just a field that never reaches the service. Nothing else
 /// in the suite would notice; these tests are the thing that would.
 ///
 /// The reverse direction matters too: a catalogued key nothing emits is dead
-/// weight that has to stay in lockstep with Kotlin and the backend for nothing.
+/// weight that has to stay in lockstep with Kotlin and the service for nothing.
 final class SignalCoverageTests: XCTestCase {
 
     override func setUp() {
@@ -32,12 +32,13 @@ final class SignalCoverageTests: XCTestCase {
         // rather than read off the device, so no collector produces them.
         "user_email", "user_phone", "user_first_name", "user_last_name",
         "user_date_of_birth", "user_gender", "user_street", "user_city",
-        "user_state", "user_zip", "user_country",
+        "user_state", "user_zip", "user_country", "user_custom_data",
         // DeepLinkHandler's attribution map
         "source", "click_id", "code", "ios_reported_at",
         // NetworkUtils.attributionQuery, off the link's own query string
         "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
         "gclid", "fbclid", "ttclid", "gbraid", "wbraid",
+        "gad_source", "gad_campaignid",
     ]
 
     /// Signals that are legitimately absent on a simulator or on a device that
@@ -58,7 +59,35 @@ final class SignalCoverageTests: XCTestCase {
         "installed_at",
         // Latched from a value that may itself be nil.
         "first_app_version",
+        // Produced by DynamicSignals, but only once the host app has called
+        // setConsent / setPushToken. Absent is meaningful for both — for
+        // consent it means "this app has no consent model", which the forwarder
+        // must be able to tell from an explicit `unknown`; for the token it
+        // means no uninstall measurement on this install. So they belong here
+        // rather than in `assembledElsewhere`: the collector does own them, it
+        // simply has nothing to report until the app speaks. The test below is
+        // the other half of that exemption.
+        "consent_ad_user_data", "consent_ad_personalization", "consent_is_eea",
+        "push_token", "push_provider",
     ]
+
+    /// Pins the other half of the exemption above: once the host app *has*
+    /// spoken, the dynamic collector must actually produce all five. Without
+    /// this, the `notAlwaysCollected` entry would equally hide a collector that
+    /// never emitted them at all — which is the state this suite caught when
+    /// they were merged in `EnrichmentSender` instead.
+    func testConsentAndPushTokenAreProducedOnceTheHostAppSuppliesThem() {
+        ConsentStore.merge(adUserData: .granted, adPersonalization: .denied, isEEA: true)
+        PushTokenStore.set("tok-123", provider: .apns)
+
+        let signals = DynamicSignals.collect()
+
+        XCTAssertEqual(signals["consent_ad_user_data"], "granted")
+        XCTAssertEqual(signals["consent_ad_personalization"], "denied")
+        XCTAssertEqual(signals["consent_is_eea"], "true")
+        XCTAssertEqual(signals["push_token"], "tok-123")
+        XCTAssertEqual(signals["push_provider"], "apns")
+    }
 
     // MARK: - Nothing is emitted that would be dropped
 

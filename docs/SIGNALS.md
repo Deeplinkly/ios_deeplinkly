@@ -6,7 +6,7 @@
 
 Every field the SDK may send to `/api/v1/enrich`, and the lowest
 [attribution level](IOS_SDK.md#attribution-levels-and-tracking-consent) at which each still
-ships. Catalogue version 9.
+ships. Catalogue version 13.
 
 A field absent from this table is never sent, at any level: the SDK drops
 anything it cannot find in the catalogue rather than defaulting to
@@ -29,6 +29,8 @@ the host app told us about the person via `setUserData()`.
 | `install_referrer` | minimal | string | android |
 | `source` | minimal | string | both |
 | `fbclid` | reduced | string | both |
+| `gad_campaignid` | reduced | string | both |
+| `gad_source` | reduced | string | both |
 | `gbraid` | reduced | string | both |
 | `gclid` | reduced | string | both |
 | `ttclid` | reduced | string | both |
@@ -46,6 +48,7 @@ the host app told us about the person via `setUserData()`.
 | `custom_user_id` | minimal | string | both |
 | `user_city` | minimal | string | both |
 | `user_country` | minimal | string | both |
+| `user_custom_data` | minimal | string | both |
 | `user_date_of_birth` | minimal | string | both |
 | `user_email` | minimal | string | both |
 | `user_first_name` | minimal | string | both |
@@ -99,6 +102,7 @@ the host app told us about the person via `setUserData()`.
 | `screen_dpi` | full | int | both |
 | `screen_height` | full | int | both |
 | `screen_width` | full | int | both |
+| `total_storage_gb` | full | int | android |
 | `webview_user_agent` | full | string | both |
 
 ## Dynamic signals
@@ -108,7 +112,11 @@ the host app told us about the person via `setUserData()`.
 | `att_status` | minimal | string | ios |
 | `attribution_level` | minimal | string | both |
 | `collected_at` | minimal | datetime | both |
+| `consent_ad_personalization` | minimal | string | both |
+| `consent_ad_user_data` | minimal | string | both |
+| `consent_is_eea` | minimal | bool | both |
 | `last_opened_at` | minimal | datetime | both |
+| `pii_hashing_enabled` | minimal | bool | both |
 | `session_id` | minimal | string | both |
 | `android_reported_at` | reduced | string | android |
 | `connection_type` | reduced | string | both |
@@ -123,6 +131,9 @@ the host app told us about the person via `setUserData()`.
 | `unidentified_device` | reduced | bool | both |
 | `advertising_id` | full | string | android |
 | `device_carrier` | full | string | android |
+| `free_storage_gb` | full | int | android |
 | `idfa` | full | string | ios |
 | `local_ip` | full | string | both |
+| `push_provider` | full | string | both |
+| `push_token` | full | string | both |
 

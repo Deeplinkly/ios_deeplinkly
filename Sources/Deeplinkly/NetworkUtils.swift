@@ -33,7 +33,7 @@ enum NetworkUtils {
     /// production; tests swap in a session whose configuration installs a
     /// `URLProtocol` stub, which is the one way to intercept these calls —
     /// `URLSession.shared` ignores `protocolClasses` by design, and
-    /// `DomainConfig` points at a **production** backend that no test may
+    /// `DomainConfig` points at a **production** service that no test may
     /// reach.
     ///
     /// A mutable static rather than an injected parameter because every caller
@@ -83,7 +83,7 @@ enum NetworkUtils {
             }
             let status = http.statusCode
             guard (200...299).contains(status) else {
-                // Keep the parsed body so callers can read the backend's ER_0xx
+                // Keep the parsed body so callers can read the service's ER_0xx
                 // code and decide whether the failure is worth retrying.
                 let parsed =
                     (try? JSONSerialization.jsonObject(with: data ?? Data())) as? [String: Any]
@@ -135,8 +135,8 @@ enum NetworkUtils {
 
     /// The click-time attribution params worth forwarding to /resolve.
     ///
-    /// Only the keys the backend actually reads (`_get_utm` and
-    /// `_get_tracking_param` in links/views.py). The link's other query
+    /// Only the keys the service actually reads (`_get_utm` and
+    /// the resolve endpoint in the service). The link's other query
     /// parameters are the host app's own data and have no business being
     /// recorded against the click.
     static func attributionQuery(_ localParams: [String: String]) -> [String: String] {
@@ -151,9 +151,9 @@ enum NetworkUtils {
     /// string.
     ///
     /// The query string, not the JSON body, and that is not a style choice.
-    /// Resolving by `code` makes the backend *create* the ClickEvent — an App
+    /// Resolving by `code` makes the service *create* the a click record — an App
     /// Link or Universal Link opened the app directly, so the server never saw
-    /// the click — and `create_click_event` reads UTMs and ad-click ids off
+    /// the click — and the resolve endpoint reads UTMs and ad-click ids off
     /// `request.GET`. It never consults the POST body, which is parsed only for
     /// `click_id` and `code`. Sending them in the body would look right and
     /// drop every one of them.
@@ -172,7 +172,7 @@ enum NetworkUtils {
         components.queryItems = query.sorted { $0.key < $1.key }
             .map { URLQueryItem(name: $0.key, value: $0.value) }
 
-        // URLComponents does not encode "+" in a query value, and Django's
+        // URLComponents does not encode "+" in a query value, and the server's
         // QueryDict decodes a bare "+" as a space. So `utm_campaign=a+b` would
         // arrive as "a b" — silent corruption of exactly the field this whole
         // method exists to deliver. Android has no such problem: URLEncoder
@@ -187,7 +187,7 @@ enum NetworkUtils {
         return components.string ?? DomainConfig.resolveClick
     }
 
-    /// True when the backend did not recognise the click id we asked about.
+    /// True when the service did not recognise the click id we asked about.
     ///
     /// /resolve answers an unknown click_id with HTTP 200 and
     /// `{"click_id": null, "params": {}, "stale": true}` rather than a 404, so
@@ -230,7 +230,7 @@ enum NetworkUtils {
     /// to any app written against a resolved link - the link arrived carrying
     /// nothing the app knew how to read. Fallbacks now keep the same
     /// {click_id, params} envelope, leaving Dart one shape to handle whether or
-    /// not the backend answered.
+    /// not the service answered.
     static func fallbackPayload(clickId: String?, localParams: [String: String]) -> [String: Any] {
         var params = localParams
         // click_id is the envelope's own key; repeating it inside params would
@@ -240,23 +240,28 @@ enum NetworkUtils {
         return ["click_id": id, "params": params]
     }
 
-    /// Attribution keys the backend surfaces inside the resolve response's "params".
+    /// Attribution keys the service surfaces inside the resolve response's "params".
     ///
     /// `gbraid`/`wbraid` are the iOS-critical pair: Google App campaigns deliver
-    /// them precisely because there is no IDFA to match on. They are listed here
-    /// ahead of the backend, which does not yet persist either on ClickEvent —
-    /// until it does they ride the /enrich fallback path, where the signal
-    /// catalogue now admits them, rather than the resolve response.
+    /// them precisely because there is no IDFA to match on. The service now
+    /// persists both on a click record and returns them here, so they arrive on the
+    /// resolve response rather than only on the /enrich fallback.
+    ///
+    /// `gad_source`/`gad_campaignid` joined them in catalogue 10, and are worth
+    /// the two extra keys for a reason that is easy to miss: about half the
+    /// Google Ads clicks in production carry `gad_source` and no `utm_source`,
+    /// so without it that traffic is indistinguishable from organic.
     private static let attributionKeys = [
         "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
         "gclid", "fbclid", "ttclid", "gbraid", "wbraid",
+        "gad_source", "gad_campaignid",
     ]
 
     /// Builds the normalized attribution snapshot persisted by AttributionStore.
     ///
-    /// The backend nests UTM and ad-click params inside "params" (click-time values
+    /// The service nests UTM and ad-click params inside "params" (click-time values
     /// merged over the link's own metadata) - see _click_attribution_params in
-    /// links/views.py. Reading them off the top level of the map returned by
+    /// the service. Reading them off the top level of the map returned by
     /// `extractParams` always yielded nil, so every snapshot carried nothing but a
     /// source and a click_id. Every caller goes through here so that nesting is
     /// unwrapped in exactly one place.
@@ -421,7 +426,7 @@ enum NetworkUtils {
                         ])
                     }
                 case .failure(let e):
-                    // Surface the backend's own ER_0xx code where there is one -
+                    // Surface the service's own ER_0xx code where there is one -
                     // "ER_011" (billing paused) is actionable, "LINK_ERROR" is not.
                     var code = "LINK_ERROR"
                     var message = e.localizedDescription

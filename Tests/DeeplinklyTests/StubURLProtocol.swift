@@ -6,7 +6,7 @@ import XCTest
 /// Intercepts every request the SDK makes, so tests can drive the network paths
 /// without one packet leaving the device.
 ///
-/// `DomainConfig` points at the production backend and one customer is live on
+/// `DomainConfig` points at the production service and one customer is live on
 /// an older SDK, so "just let it fail against the real host" is not an option:
 /// it would be slow, non-deterministic, and pointed at production. This
 /// intercepts at the `URLProtocol` layer instead — `canInit` claims *everything*,

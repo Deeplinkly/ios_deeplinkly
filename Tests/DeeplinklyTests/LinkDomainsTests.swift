@@ -64,7 +64,7 @@ final class LinkDomainsTests: XCTestCase {
         }
     }
 
-    /// Custom schemes lose nothing by this: the fallback the backend builds is
+    /// Custom schemes lose nothing by this: the fallback the service builds is
     /// `<scheme>://open?click_id=…`, matched on the click id, with no path
     /// segment to read anyway.
     func testHttpAndHttpsBothQualify() {

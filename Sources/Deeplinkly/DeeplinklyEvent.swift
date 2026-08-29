@@ -7,9 +7,9 @@ import Foundation
 /// read side by side. iOS enforced none of these rules while the public Dart
 /// API documented them as "enforced natively rather than here", so a Flutter
 /// app on iOS could send a 10KB event name, a hundred parameters, or keys
-/// carrying the SDK's own reserved prefix — straight to the backend.
+/// carrying the SDK's own reserved prefix — straight to the service.
 ///
-/// The limits are the documented ones and are asserted by the backend too;
+/// The limits are the documented ones and are asserted by the service too;
 /// changing one here without changing it there will start silently truncating.
 enum DeeplinklyEvent {
     static let maxNameLength = 64
@@ -20,7 +20,7 @@ enum DeeplinklyEvent {
     /// Reserved for the SDK's own bookkeeping (`_dl_event_seq`,
     /// `_dl_session_id`, …).
     ///
-    /// The backend excludes this prefix from the caller's parameter budget, so
+    /// The service excludes this prefix from the caller's parameter budget, so
     /// letting a caller write one would both collide with the SDK's own values
     /// and smuggle parameters past the count limit.
     static let reservedParamPrefix = "_dl_"
@@ -30,7 +30,7 @@ enum DeeplinklyEvent {
     /// Not `_dl_`-prefixed, so they cost a parameter and the tenant sees them in
     /// their dashboard, which is the point — the amount of a sale is the first
     /// thing someone reads off a purchase event. What the reservation buys is a
-    /// *shape*: the backend lifts these two into typed columns, and Meta's
+    /// *shape*: the service lifts these two into typed columns, and Meta's
     /// `custom_data.value`/`currency` and Google's conversion value both want a
     /// number and a currency code rather than whatever a caller felt like.
     ///
@@ -149,7 +149,7 @@ enum DeeplinklyEvent {
 
         if value is [Any] || value is [String: Any] || value is [AnyHashable: Any] {
             // Containers are stored as compact JSON text, so it is the encoded
-            // length the backend measures — and truncates.
+            // length the service measures — and truncates.
             guard let encoded = try? encodeCompactJSON(value) else {
                 return .badValue(key: rawKey, why: "is not JSON-encodable")
             }
@@ -179,7 +179,7 @@ enum DeeplinklyEvent {
     /// The tree is walked and type-checked before `JSONSerialization` sees it,
     /// for the same reason Android does not hand the map to `JSONObject`:
     /// letting the serialiser decide would either throw an ObjC exception that
-    /// Swift cannot catch, or accept a value the backend cannot store.
+    /// Swift cannot catch, or accept a value the service cannot store.
     private static func encodeCompactJSON(_ value: Any) throws -> String {
         let sanitised = try toJSONValue(value)
         // .sortedKeys only to make the encoded length reproducible in tests;

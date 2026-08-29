@@ -108,7 +108,7 @@ final class DeepLinkDeliveryGuardTests: XCTestCase {
     }
 
     /// The same link arriving through two different read paths is two
-    /// identities — the source is what the backend stamps as
+    /// identities — the source is what the service stamps as
     /// `attribution_source`, so collapsing them would lose which mechanism
     /// recovered the install.
     func testTheSameLinkFromADifferentSourceIsNotSuppressed() {

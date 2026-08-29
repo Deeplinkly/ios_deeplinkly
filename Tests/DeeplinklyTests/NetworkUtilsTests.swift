@@ -123,7 +123,7 @@ final class NetworkUtilsTests: XCTestCase {
 
     // MARK: - attributionQuery
 
-    /// Only the keys the backend reads. The link's other query parameters are
+    /// Only the keys the service reads. The link's other query parameters are
     /// the host app's own data and have no business being recorded against the
     /// click.
     func testAttributionQueryKeepsOnlyCataloguedKeys() {
@@ -164,7 +164,7 @@ final class NetworkUtilsTests: XCTestCase {
 
     // MARK: - resolveURL
 
-    /// Attribution rides the query string because `create_click_event` reads it
+    /// Attribution rides the query string because the resolve endpoint reads it
     /// off `request.GET`; the POST body is parsed only for `click_id` and
     /// `code`. Sending them in the body looks right and drops every one.
     func testResolveURLCarriesAttributionOnTheQueryString() {
@@ -194,7 +194,7 @@ final class NetworkUtilsTests: XCTestCase {
             "parameters are not in sorted order: \(first)")
     }
 
-    /// `URLComponents` leaves "+" unencoded and Django's QueryDict decodes a
+    /// `URLComponents` leaves "+" unencoded and the receiving query parser decodes a
     /// bare "+" as a space, so `utm_campaign=a+b` would arrive as "a b" —
     /// silent corruption of the field this whole method exists to deliver.
     func testResolveURLEncodesPlusSigns() {
@@ -204,7 +204,7 @@ final class NetworkUtilsTests: XCTestCase {
     }
 
     /// A raw space or a bare "&" in a value would truncate the query or split
-    /// it into a parameter the backend never expected.
+    /// it into a parameter the service never expected.
     func testResolveURLPercentEncodesReservedCharacters() {
         let url = NetworkUtils.resolveURL(localParams: ["utm_campaign": "spring sale&more"])
         XCTAssertFalse(url.contains("spring sale"), "a raw space reached the URL: \(url)")
@@ -228,7 +228,7 @@ final class NetworkUtilsTests: XCTestCase {
 
     // MARK: - attributionSnapshot
 
-    /// The backend nests UTMs inside "params". Reading them off the top level
+    /// The service nests UTMs inside "params". Reading them off the top level
     /// always yielded nil, so every stored snapshot carried nothing but a
     /// source and a click id.
     func testAttributionSnapshotUnwrapsNestedParams() {

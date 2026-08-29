@@ -10,7 +10,7 @@ enum SignalTier: Int {
     case full = 2
 }
 
-/// Where a signal comes from, and where the backend stores it.
+/// Where a signal comes from, and where the service stores it.
 ///
 /// The cases are named `staticProfile`/`dynamicSignal` rather than
 /// `static`/`dynamic` because both are Swift keywords.
@@ -38,7 +38,7 @@ struct SignalSpec {
 /// rather than maintained by hand.
 enum SignalCatalogue {
     /// Part of the static-profile stamp; bumping it forces a re-collect.
-    static let version = 9
+    static let version = 13
 
     static let specs: [String: SignalSpec] = [
         "app_build_number": SignalSpec(tier: .minimal, scope: .staticProfile),
@@ -51,6 +51,9 @@ enum SignalCatalogue {
         "code": SignalSpec(tier: .minimal, scope: .identity),
         "collected_at": SignalSpec(tier: .minimal, scope: .dynamicSignal),
         "connection_type": SignalSpec(tier: .reduced, scope: .dynamicSignal),
+        "consent_ad_personalization": SignalSpec(tier: .minimal, scope: .dynamicSignal),
+        "consent_ad_user_data": SignalSpec(tier: .minimal, scope: .dynamicSignal),
+        "consent_is_eea": SignalSpec(tier: .minimal, scope: .dynamicSignal),
         "cpu_type": SignalSpec(tier: .full, scope: .staticProfile),
         "custom_user_id": SignalSpec(tier: .minimal, scope: .user),
         "deeplinkly_device_id": SignalSpec(tier: .minimal, scope: .staticProfile),
@@ -60,6 +63,8 @@ enum SignalCatalogue {
         "fbclid": SignalSpec(tier: .reduced, scope: .identity),
         "first_app_version": SignalSpec(tier: .reduced, scope: .staticProfile),
         "first_open_at": SignalSpec(tier: .reduced, scope: .staticProfile),
+        "gad_campaignid": SignalSpec(tier: .reduced, scope: .identity),
+        "gad_source": SignalSpec(tier: .reduced, scope: .identity),
         "gbraid": SignalSpec(tier: .reduced, scope: .identity),
         "gclid": SignalSpec(tier: .reduced, scope: .identity),
         "hardware_concurrency": SignalSpec(tier: .full, scope: .staticProfile),
@@ -78,8 +83,11 @@ enum SignalCatalogue {
         "manufacturer": SignalSpec(tier: .full, scope: .staticProfile),
         "os_build_id": SignalSpec(tier: .full, scope: .staticProfile),
         "os_version": SignalSpec(tier: .reduced, scope: .staticProfile),
+        "pii_hashing_enabled": SignalSpec(tier: .minimal, scope: .dynamicSignal),
         "pixel_ratio": SignalSpec(tier: .full, scope: .staticProfile),
         "platform": SignalSpec(tier: .minimal, scope: .staticProfile),
+        "push_provider": SignalSpec(tier: .full, scope: .dynamicSignal),
+        "push_token": SignalSpec(tier: .full, scope: .dynamicSignal),
         "region": SignalSpec(tier: .reduced, scope: .dynamicSignal),
         "screen_dpi": SignalSpec(tier: .full, scope: .staticProfile),
         "screen_height": SignalSpec(tier: .full, scope: .staticProfile),
@@ -95,6 +103,7 @@ enum SignalCatalogue {
         "unidentified_device": SignalSpec(tier: .reduced, scope: .dynamicSignal),
         "user_city": SignalSpec(tier: .minimal, scope: .user),
         "user_country": SignalSpec(tier: .minimal, scope: .user),
+        "user_custom_data": SignalSpec(tier: .minimal, scope: .user),
         "user_date_of_birth": SignalSpec(tier: .minimal, scope: .user),
         "user_email": SignalSpec(tier: .minimal, scope: .user),
         "user_first_name": SignalSpec(tier: .minimal, scope: .user),

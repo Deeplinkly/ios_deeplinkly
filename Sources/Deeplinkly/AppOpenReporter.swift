@@ -8,7 +8,7 @@ import UIKit
 /// the Flutter-ready flag, and `StartupEnrichment` fires once per process. A
 /// returning user who never cold-started the app was invisible.
 ///
-/// Rate-limited hard. `TenantUser` is rewritten on every open and is documented
+/// Rate-limited hard. the person's record is rewritten on every open and is documented
 /// as the hottest write path in the product; an unthrottled ping would multiply
 /// that by the number of foreground transitions per session.
 enum AppOpenReporter {

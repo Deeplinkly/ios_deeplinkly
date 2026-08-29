@@ -98,9 +98,91 @@
 			</array>
 		</dict>
 		<dict>
-			<!-- custom_user_id, set by the host app via setUserId() -->
+			<!--
+			  custom_user_id, set by the host app via setUserId() or as the
+			  userId field of setUserData().
+			-->
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypeUserID</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+		<!--
+		  The four entries below arrived with catalogue 9 and setUserData(),
+		  which takes email, phone, name, date of birth, gender and postal
+		  address from the host app and reports them at attribution level
+		  `minimal` — so, unlike the device profile further down, they survive
+		  every level except `none`.
+
+		  Declared here for the same reason custom_user_id is: the SDK collects
+		  them only when the host app hands them over, and a data type the SDK
+		  can transmit belongs in the SDK's own manifest whether or not a
+		  particular app ever calls the API. An app that never calls
+		  setUserData() collects none of it, and the entries below cost it
+		  nothing beyond an accurate privacy report.
+
+		  Tracking stays false here, and these purposes deliberately exclude
+		  third-party advertising. Forwarding a conversion to Meta or Google
+		  joins this data with data those companies hold from other apps, which
+		  is ATT's definition of tracking — so an app that enables forwarding
+		  merges Resources/ConversionForwarding/PrivacyInfo.xcprivacy into its
+		  own manifest, exactly as the IDFA opt-in does. Keeping that
+		  declaration out of this file is what stops it being made on behalf of
+		  every host app; see the note at the top.
+		-->
+		<dict>
+			<!-- user_email -->
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeEmailAddress</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+		<dict>
+			<!-- user_phone -->
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypePhoneNumber</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+		<dict>
+			<!-- user_first_name, user_last_name -->
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeName</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+		<dict>
+			<!-- user_street, user_city, user_state, user_zip, user_country -->
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypePhysicalAddress</string>
 			<key>NSPrivacyCollectedDataTypeLinked</key>
 			<true/>
 			<key>NSPrivacyCollectedDataTypeTracking</key>
@@ -140,11 +222,23 @@
 		</dict>
 		<dict>
 			<!--
-			  Device characteristics reported with enrichment: model, OS and
-			  build version, screen geometry, CPU, memory and storage tiers,
-			  locale and timezone, carrier-free connection type, and the local
-			  IP address. Collected at attribution level `full`; `reduced`
-			  drops all of it, and `minimal` keeps none of it.
+			  Two unrelated sets, under one key because Apple publishes no more
+			  specific type for either, and the array may not name the same type
+			  twice.
+
+			  1. Device characteristics reported with enrichment: model, OS and
+			     build version, screen geometry, CPU, memory and storage tiers,
+			     locale and timezone, carrier-free connection type, and the
+			     local IP address. Collected at attribution level `full`;
+			     `reduced` drops all of it, and `minimal` keeps none of it.
+
+			  2. user_date_of_birth and user_gender, from setUserData(). These
+			     follow the identity entries above, not this list's first half:
+			     they are `minimal`-tier and survive every level except `none`.
+			     Apple's contact-info types stop at name, email, phone and
+			     address, and its Sensitive Info type enumerates a closed list
+			     that includes neither, so the catch-all is the honest choice
+			     rather than a convenient one.
 			-->
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypeOtherDataTypes</string>

@@ -19,7 +19,7 @@ final class DeviceProfileTests: XCTestCase {
     // MARK: - Contents
 
     /// The signals that identify the install and the build. A profile missing
-    /// one of these produces an enrichment the backend cannot file.
+    /// one of these produces an enrichment the service cannot file.
     func testProfileCarriesIdentityAndBuild() {
         let profile = DeviceProfile.current()
 

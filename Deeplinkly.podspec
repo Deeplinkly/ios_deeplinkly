@@ -28,8 +28,11 @@ first-touch attribution, and reports privacy-tiered device context on iOS.
   }
 
   # Required-reason API declarations for UserDefaults, system uptime, file
-  # timestamps, and disk space. The IDFA variant is an opt-in template for host
-  # apps and is deliberately excluded from the shipped resource bundle.
+  # timestamps, and disk space. The IDFA and ConversionForwarding variants are
+  # opt-in templates for host apps to merge into their own manifests, and are
+  # deliberately excluded from the shipped resource bundle: Xcode aggregates
+  # every bundled manifest into the containing app's privacy report, so a
+  # tracking declaration here would be made on behalf of every host app.
   s.resource_bundles = {
     'DeeplinklyPrivacy' => ['Sources/Deeplinkly/Resources/PrivacyInfo.xcprivacy']
   }

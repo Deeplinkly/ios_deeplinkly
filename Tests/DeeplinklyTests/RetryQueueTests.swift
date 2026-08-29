@@ -114,7 +114,7 @@ final class RetryQueueTests: XCTestCase {
         let items = RetryQueue.items()
         // Two enqueues a moment apart differ only in queued_at; force the
         // genuinely-identical case the dedupe-free queue can produce.
-        UserDefaults.standard.set([items[0], items[0]], forKey: "dl_pending_retries")
+        seedQueue([items[0], items[0]])
 
         RetryQueue.remove(items[0])
         XCTAssertEqual(RetryQueue.items().count, 1)
@@ -223,7 +223,7 @@ final class RetryQueueTests: XCTestCase {
     /// Every `retryAll` case exercised below is one that provably issues no
     /// request. The send-dispatch paths are deliberately not covered: they call
     /// `sendNow`, which blocks on a semaphore around a live request to
-    /// `DomainConfig`'s production host, and the backend is production. Making
+    /// `DomainConfig`'s production host, and the service is production. Making
     /// them testable needs an injectable base URL or `URLSession` — see
     /// `SEAM_TESTS.md`.
     ///
@@ -276,31 +276,128 @@ final class RetryQueueTests: XCTestCase {
         guard let data = try? JSONSerialization.data(withJSONObject: item),
             let encoded = String(data: data, encoding: .utf8)
         else { return XCTFail("could not encode fixture") }
-        UserDefaults.standard.set([encoded], forKey: "dl_pending_retries")
+        seedQueue([encoded])
+    }
+
+    /// Writes the queue where the queue actually lives.
+    ///
+    /// Going through `UserDefaults` would work — `items()` would migrate it —
+    /// but then every drain test would depend on the migration path, and a bug
+    /// there would surface as unrelated failures somewhere else.
+    private func seedQueue(_ items: [String]) {
+        guard let data = try? JSONSerialization.data(withJSONObject: items),
+            let json = String(data: data, encoding: .utf8)
+        else { return XCTFail("could not encode queue") }
+        Keychain.set(json, for: "dl_pending_retries", accessibility: Keychain.thisDeviceOnly)
+    }
+
+    /// The queue as the Keychain holds it, or nil when nothing is stored.
+    private func storedQueue() -> [String]? {
+        guard let raw = Keychain.get("dl_pending_retries"),
+            let data = raw.data(using: .utf8)
+        else { return nil }
+        return try? JSONSerialization.jsonObject(with: data) as? [String]
     }
 
     // MARK: - Storage contract
 
-    /// New writes use the cross-platform key and never recreate the legacy key.
+    /// New writes use the cross-platform key, in the Keychain, and never
+    /// recreate either plist entry.
     func testStorageKeyIsStable() {
         RetryQueue.enqueue(type: "event", payload: [:])
         XCTAssertNotNil(
-            UserDefaults.standard.array(forKey: "dl_pending_retries"),
+            storedQueue(),
             "the retry queue is no longer stored under dl_pending_retries")
         XCTAssertNil(UserDefaults.standard.object(forKey: "sdk_retry_queue"))
     }
 
-    /// Payloads queued by an older iOS SDK survive the key rename. Writing the
-    /// canonical value before deleting the old one also makes an interrupted
-    /// migration recoverable on the next access.
+    /// The reason this store moved: a queued enrichment carries whatever
+    /// `setUserData` was given, and `UserDefaults` is a plist that rides into
+    /// device backups and restores onto other hardware. `UserDataStore` moved
+    /// to the Keychain for exactly that reason and the queue was putting the
+    /// same values straight back.
+    ///
+    /// What this can and cannot see: which store was written is observable, and
+    /// is asserted below. The protection class is not — package tests run
+    /// against `Keychain`'s in-memory store, which ignores it — and neither is
+    /// the backup behaviour that is the actual point. Same seam
+    /// `UserDataStoreTests.testIsStoredInTheKeychainAndNotInUserDefaults`
+    /// documents.
+    func testAQueuedPayloadNeverTouchesUserDefaults() {
+        RetryQueue.enqueue(
+            type: "enrichment",
+            payload: ["user_email": "ada@example.com", "user_phone": "+15555550123"])
+
+        XCTAssertNil(UserDefaults.standard.object(forKey: "dl_pending_retries"))
+        XCTAssertNil(UserDefaults.standard.object(forKey: "sdk_retry_queue"))
+
+        // Belt and braces: no plist entry anywhere holds the address, whatever
+        // it is keyed under.
+        let plist = UserDefaults.standard.dictionaryRepresentation()
+        for (key, value) in plist {
+            XCTAssertFalse(
+                String(describing: value).contains("ada@example.com"),
+                "personal data reached UserDefaults under \(key)")
+        }
+
+        // And it is genuinely still queued — the point is to move it, not to
+        // drop it.
+        XCTAssertEqual(RetryQueue.items().count, 1)
+        XCTAssertTrue(RetryQueue.items()[0].contains("ada@example.com"))
+    }
+
+    /// A privacy reset has to reach the Keychain copy; the UserDefaults sweep
+    /// in `PrivacyData` cannot.
+    func testClearRemovesTheKeychainCopy() {
+        RetryQueue.enqueue(type: "event", payload: [:])
+        XCTAssertNotNil(storedQueue())
+
+        RetryQueue.clear()
+
+        XCTAssertNil(storedQueue())
+        XCTAssertTrue(RetryQueue.items().isEmpty)
+    }
+
+    /// Draining the last item leaves no empty husk behind in the Keychain.
+    func testEmptyingTheQueueDeletesTheItem() {
+        RetryQueue.enqueue(type: "event", payload: [:])
+        RetryQueue.remove(RetryQueue.items()[0])
+
+        XCTAssertNil(storedQueue())
+    }
+
+    /// Payloads queued by an older iOS SDK survive the key rename *and* the
+    /// move to the Keychain. These are undelivered payloads; an SDK upgrade is
+    /// no reason to lose them.
     func testLegacyStorageIsMovedAndDeletedOnFirstAccess() {
         let legacyItems = ["legacy item"]
         UserDefaults.standard.set(legacyItems, forKey: "sdk_retry_queue")
 
         XCTAssertEqual(RetryQueue.items(), legacyItems)
-        XCTAssertEqual(
-            UserDefaults.standard.array(forKey: "dl_pending_retries") as? [String], legacyItems)
+        XCTAssertEqual(storedQueue(), legacyItems)
         XCTAssertNil(UserDefaults.standard.object(forKey: "sdk_retry_queue"))
+    }
+
+    /// A queue written to the plist by the build immediately before this one
+    /// is carried into the Keychain, and the plist copy does not survive it.
+    /// That copy is the exposure the move exists to end, so leaving it would
+    /// defeat the change for every device that upgrades with a backlog.
+    func testAPlistQueueIsMovedIntoTheKeychainAndErased() {
+        UserDefaults.standard.set(["pending item"], forKey: "dl_pending_retries")
+
+        XCTAssertEqual(RetryQueue.items(), ["pending item"])
+        XCTAssertEqual(storedQueue(), ["pending item"])
+        XCTAssertNil(UserDefaults.standard.object(forKey: "dl_pending_retries"))
+    }
+
+    /// The Keychain wins over a stale plist copy: that state means the
+    /// migration already ran and these are its leftovers, not newer data.
+    func testTheKeychainWinsOverALeftoverPlistQueue() {
+        seedQueue(["keychain item"])
+        UserDefaults.standard.set(["stale plist item"], forKey: "dl_pending_retries")
+
+        XCTAssertEqual(RetryQueue.items(), ["keychain item"])
+        XCTAssertNil(UserDefaults.standard.object(forKey: "dl_pending_retries"))
     }
 
     /// If cleanup was interrupted after the canonical write, retrying the
@@ -311,6 +408,7 @@ final class RetryQueueTests: XCTestCase {
 
         XCTAssertEqual(RetryQueue.items(), ["canonical item"])
         XCTAssertNil(UserDefaults.standard.object(forKey: "sdk_retry_queue"))
+        XCTAssertNil(UserDefaults.standard.object(forKey: "dl_pending_retries"))
     }
 
     /// The three types `retryAll` dispatches on. A payload stored under a type

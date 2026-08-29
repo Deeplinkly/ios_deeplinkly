@@ -120,7 +120,7 @@ final class DomainConfigTests: XCTestCase {
         }
     }
 
-    /// The paths are the wire contract with a production backend that one
+    /// The paths are the wire contract with a production service that one
     /// customer is live against on an older SDK.
     func testEndpointPathsAreFrozen() {
         XCTAssertEqual(DomainConfig.enrich, "\(DomainConfig.base)/api/v1/enrich")

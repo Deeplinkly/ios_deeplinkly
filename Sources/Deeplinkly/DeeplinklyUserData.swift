@@ -19,7 +19,7 @@ import Foundation
 /// choice and buy nothing: SHA-256 of a normalised email is not one-way against
 /// an address someone already has — it is precisely the value Meta matches on,
 /// so anyone holding the digest holds the match key. Keeping the plaintext is
-/// what lets the backend normalise per destination (Meta and Google disagree
+/// what lets the service normalise per destination (Meta and Google disagree
 /// about phone formatting) and re-derive when a platform changes its rules.
 ///
 /// ## Normalisation is deliberately shallow
@@ -27,7 +27,7 @@ import Foundation
 /// Trimming only, except where a value has to fit a column that cannot hold the
 /// alternative. Lowercasing an email, or stripping punctuation out of a name,
 /// is a destination's rule rather than a fact about the value, and doing it
-/// here would throw away what the app actually knows before the backend can
+/// here would throw away what the app actually knows before the service can
 /// decide what each destination wants.
 ///
 /// The three constrained fields are the exception. `user_gender` is one
@@ -52,6 +52,22 @@ enum DeeplinklyUserData {
     static let keyZip = "user_zip"
     static let keyCountry = "user_country"
 
+    /// Host-supplied identifiers that are not one of the twelve typed fields,
+    /// carried as one JSON object.
+    ///
+    /// This exists because an app binary is frozen for as long as its release
+    /// cycle, and the typed field list is not. When a customer needs to join
+    /// attribution to a product-analytics tool — a Mixpanel distinct id, an
+    /// Amplitude device id, a CleverTap id — adding a thirteenth named field
+    /// would mean waiting for every host app to ship again. A single open
+    /// field moves that from an SDK release to a service deploy.
+    ///
+    /// One JSON key rather than `user_custom_*` wire keys on purpose: the
+    /// catalogue is a closed set that the published inventory and the
+    /// `ErrorLog` redaction both derive from, and letting callers invent wire
+    /// keys would make it neither closed nor generated.
+    static let keyCustomData = "user_custom_data"
+
     /// Every `user_*` key, and the length the catalogue gives it.
     ///
     /// `custom_user_id` is absent on purpose: it is user-scoped in the
@@ -60,7 +76,10 @@ enum DeeplinklyUserData {
     /// second copy. See `Deeplinkly.setUserData`.
     static let maxLengths: [String: Int] = [
         keyEmail: 320,
-        keyPhone: 32,
+        // 64, not the 32 a phone number needs: with PIIHashing on this field
+        // carries a SHA-256 hex digest instead. Matches the catalogue's max_len
+        // and the service column.
+        keyPhone: 64,
         keyFirstName: 128,
         keyLastName: 128,
         keyDateOfBirth: 10,
@@ -70,7 +89,13 @@ enum DeeplinklyUserData {
         keyState: 128,
         keyZip: 32,
         keyCountry: 2,
+        keyCustomData: 4096,
     ]
+
+    /// Caps on the dictionary `keyCustomData` is built from.
+    static let maxCustomEntries = 10
+    static let maxCustomKeyLength = 64
+    static let maxCustomValueLength = 256
 
     /// The keys `UserDataStore` may hold.
     static var keys: Set<String> { Set(maxLengths.keys) }
@@ -84,6 +109,61 @@ enum DeeplinklyUserData {
     struct Result {
         let fields: [String: String]?
         let rejection: Rejection?
+    }
+
+    /// Encodes `custom` into the JSON object `keyCustomData` holds.
+    ///
+    /// Bounded on entry count, key length and value length so a caller cannot
+    /// turn an open field into an unbounded one. The caps mirror event
+    /// parameters, which is the other place a host app hands us arbitrary keys.
+    ///
+    /// Values are trimmed and otherwise sent as supplied. Nothing here is
+    /// hashed, for the reason in the type note: what the service needs is the
+    /// value the app actually holds, so it can normalise per destination.
+    ///
+    /// An empty or nil dictionary answers `(nil, nil)` — absent, which merges
+    /// as "leave whatever is there alone", matching every other field.
+    static func encodeCustomData(
+        _ custom: [String: String?]?
+    ) -> (String?, Rejection?) {
+        guard let custom, !custom.isEmpty else { return (nil, nil) }
+
+        var kept: [String: String] = [:]
+        for (rawKey, rawValue) in custom {
+            let key = rawKey.trimmingCharacters(in: .whitespacesAndNewlines)
+            let value = (rawValue ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            // A blank value is a caller saying nothing about this key, not a
+            // request to erase it. clearUserData() is what erases.
+            if key.isEmpty || value.isEmpty { continue }
+            if key.count > maxCustomKeyLength {
+                return (nil, Rejection(
+                    reason: "custom data key \"\(key)\" exceeds "
+                        + "\(maxCustomKeyLength) characters"))
+            }
+            if value.count > maxCustomValueLength {
+                return (nil, Rejection(
+                    reason: "custom data value for \"\(key)\" exceeds "
+                        + "\(maxCustomValueLength) characters"))
+            }
+            kept[key] = value
+        }
+        if kept.isEmpty { return (nil, nil) }
+        if kept.count > maxCustomEntries {
+            return (nil, Rejection(
+                reason: "custom data holds more than \(maxCustomEntries) "
+                    + "entries (\(kept.count))"))
+        }
+
+        // sortedKeys so the same dictionary always encodes to the same string:
+        // an unstable blob would look like a changed value to the merge on the
+        // far side and rewrite a column that did not change.
+        guard let data = try? JSONSerialization.data(
+            withJSONObject: kept, options: [.sortedKeys]),
+            let json = String(data: data, encoding: .utf8)
+        else {
+            return (nil, Rejection(reason: "custom data could not be encoded"))
+        }
+        return (json, nil)
     }
 
     /// Normalises one field, or explains why it cannot be stored.

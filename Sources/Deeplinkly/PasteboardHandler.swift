@@ -34,12 +34,12 @@ enum PasteboardHandler {
     private static let optInKey = "deeplinkly_check_pasteboard_on_install"
     private static let optInInfoKey = "DeeplinklyCheckPasteboardOnInstall"
 
-    /// The `attribution_source` the backend records for each read path.
+    /// The `attribution_source` the service records for each read path.
     ///
     /// These are the axis the two mechanisms get compared on — "the paste
     /// control recovers X% of tokens, the automatic read Y%" is not answerable
     /// unless the arms are labelled apart at the point of resolve. Must stay in
-    /// step with `ClickEvent.SOURCE_CHOICES` server-side.
+    /// step with the accepted source values server-side.
     private static let sourceAutomatic = "clipboard"
     private static let sourcePasteControl = "paste_control"
 
@@ -340,7 +340,7 @@ enum PasteboardHandler {
     /// it. Returns whether it was ours.
     ///
     /// `source` is the only thing separating the two read paths once the text
-    /// is in hand, so it travels with the link all the way to the backend. It
+    /// is in hand, so it travels with the link all the way to the service. It
     /// also decides whether we clear the pasteboard: the automatic read took
     /// the item without being asked and cleans up after itself so the next
     /// launch does not show a second banner for a link already handled, while a

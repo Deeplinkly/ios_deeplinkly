@@ -12,6 +12,21 @@ enum Keychain {
     /// user's attribution across two identities.
     private static let accessible = kSecAttrAccessibleAfterFirstUnlock
 
+    /// For items that must not ride into a backup or restore onto other
+    /// hardware.
+    ///
+    /// `AfterFirstUnlock` is enough to survive a pre-unlock launch, but the item
+    /// still travels in a device backup and comes back on whatever device that
+    /// backup is restored to. For the install id that is tolerable. For the
+    /// person's own email, phone, name and address it is not: those are the
+    /// values `setUserData` collects, and a copy of them landing on a second
+    /// device — or in an unencrypted local backup — is a disclosure nobody
+    /// asked for and nothing here would ever undo.
+    ///
+    /// The suffix is the whole difference. Everything else about the protection
+    /// class is identical.
+    static let thisDeviceOnly = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+
     /// SwiftPM's unhosted iOS test runner has no Keychain entitlement. Package
     /// tests opt into this process-local store; app-hosted integration tests
     /// leave it nil and exercise Security.framework itself.
@@ -32,8 +47,13 @@ enum Keychain {
         ]
     }
 
+    /// - Parameter accessibility: the protection class. Defaults to the
+    ///   install-id behaviour; pass ``thisDeviceOnly`` for anything that must
+    ///   not leave this device.
     @discardableResult
-    static func set(_ value: String, for key: String) -> Bool {
+    static func set(
+        _ value: String, for key: String, accessibility: CFString = accessible
+    ) -> Bool {
         testingLock.lock()
         if testingStorage != nil {
             testingStorage?[key] = value
@@ -50,7 +70,7 @@ enum Keychain {
         // Add new item
         var attributes = baseQuery(for: key)
         attributes[kSecValueData as String] = data
-        attributes[kSecAttrAccessible as String] = accessible
+        attributes[kSecAttrAccessible as String] = accessibility
 
         let status = SecItemAdd(attributes as CFDictionary, nil)
         return status == errSecSuccess

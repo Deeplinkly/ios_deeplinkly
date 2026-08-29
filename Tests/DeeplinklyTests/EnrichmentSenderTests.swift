@@ -84,7 +84,7 @@ final class EnrichmentSenderTests: XCTestCase {
         XCTAssertNotNil(body?["last_opened_at"], "no freshly-collected dynamic signal")
     }
 
-    /// Reported so the backend can tell a thin payload from a missing one.
+    /// Reported so the service can tell a thin payload from a missing one.
     func testThePayloadDescribesItself() {
         AttributionLevel.set(.minimal)
         send(["click_id": "c1"])
@@ -274,7 +274,7 @@ final class EnrichmentSenderTests: XCTestCase {
     }
 
     /// Empty is a value here, not an absence. `UserDataStore.clear` tombstones
-    /// each set field to "" and the backend reads that as "erase this column"; a
+    /// each set field to "" and the service reads that as "erase this column"; a
     /// filter that dropped empties on the way out would turn a deletion into a
     /// no-op without anyone noticing.
     func testATombstonedFieldIsSentAsAnEmptyValue() {
@@ -333,5 +333,103 @@ final class EnrichmentSenderTests: XCTestCase {
             for: ["click_id": "c1", DeeplinklyUserData.keyEmail: "ada@example.com"],
             source: "deep_link")
         XCTAssertEqual(without, with)
+    }
+
+    // MARK: - Consent
+
+    /// Consent has to reach the service on the ordinary enrichment path: it is
+    /// what the forwarder reads when it decides whether a conversion may be
+    /// uploaded at all.
+    func testConsentRidesAlongOnThePayload() {
+        ConsentStore.merge(adUserData: .granted, adPersonalization: .denied, isEEA: true)
+
+        send(["click_id": "c1"])
+
+        let body = waitForEnrichment().first?.body
+        XCTAssertEqual(body?[ConsentStore.keyAdUserData] as? String, "granted")
+        XCTAssertEqual(body?[ConsentStore.keyAdPersonalization] as? String, "denied")
+        XCTAssertEqual(body?[ConsentStore.keyIsEEA] as? String, "true")
+    }
+
+    /// The failure this guards against. A grant followed by a withdrawal
+    /// reports twice under one source, and an identity-only key would collapse
+    /// the withdrawal into the grant — losing precisely the update that must
+    /// not be lost.
+    func testAWithdrawalAfterAGrantIsNotDedupedAway() {
+        ConsentStore.merge(adUserData: .granted, adPersonalization: .granted, isEEA: nil)
+        send(source: EnrichmentSender.consentSource, force: true)
+        _ = waitForEnrichment(count: 1)
+
+        ConsentStore.merge(adUserData: .denied, adPersonalization: .denied, isEEA: nil)
+        send(source: EnrichmentSender.consentSource, force: true)
+
+        let all = waitForEnrichment(count: 2)
+        XCTAssertEqual(all.count, 2)
+        XCTAssertEqual(all.last?.body?[ConsentStore.keyAdUserData] as? String, "denied")
+    }
+
+    /// Consent is `minimal` tier, so it survives every level that sends
+    /// anything at all. A level that stripped it would leave the forwarder
+    /// unable to tell a denial from an app that never asked.
+    func testConsentSurvivesTheStrictestLevelThatStillSends() {
+        AttributionLevel.set(.minimal)
+        ConsentStore.merge(adUserData: .denied, adPersonalization: .denied, isEEA: true)
+
+        send(["click_id": "c1"])
+
+        let body = waitForEnrichment().first?.body
+        XCTAssertEqual(body?[ConsentStore.keyAdUserData] as? String, "denied")
+    }
+
+    // MARK: - Push token
+
+    func testThePushTokenRidesAlongOnThePayload() {
+        PushTokenStore.set("tok-123", provider: .apns)
+
+        send(["click_id": "c1"])
+
+        let body = waitForEnrichment().first?.body
+        XCTAssertEqual(body?["push_token"] as? String, "tok-123")
+        XCTAssertEqual(body?["push_provider"] as? String, "apns")
+    }
+
+    /// Tokens rotate. A rotation reports under the same source and must not
+    /// collapse into the first report, or the prober keeps pinging a token that
+    /// no longer resolves and reads the failure as an uninstall.
+    func testARotatedPushTokenIsNotDedupedAway() {
+        PushTokenStore.set("tok-123", provider: .apns)
+        send(source: EnrichmentSender.pushTokenSource, force: true)
+        _ = waitForEnrichment(count: 1)
+
+        PushTokenStore.set("tok-456", provider: .apns)
+        send(source: EnrichmentSender.pushTokenSource, force: true)
+
+        let all = waitForEnrichment(count: 2)
+        XCTAssertEqual(all.count, 2)
+        XCTAssertEqual(all.last?.body?["push_token"] as? String, "tok-456")
+    }
+
+    /// `push_token` is FULL tier: a unique per-install identifier a server can
+    /// address. An app at REDUCED does not report it and does not get uninstall
+    /// measurement. That is the level working, and pinning it here means a
+    /// future reclassification has to be deliberate.
+    func testThePushTokenIsDroppedBelowFull() {
+        AttributionLevel.set(.reduced)
+        PushTokenStore.set("tok-123", provider: .apns)
+
+        send(["click_id": "c1"])
+
+        let body = waitForEnrichment().first?.body
+        XCTAssertNil(body?["push_token"])
+        XCTAssertNil(body?["push_provider"])
+    }
+
+    /// A dedupe key becomes the name of a UserDefaults entry, and a push token
+    /// is an addressable identifier. It has to be digested, like the email
+    /// address above, rather than written in plain.
+    func testTheDedupeKeyDoesNotContainThePushTokenItself() {
+        let key = EnrichmentSender.dedupeKey(
+            for: ["push_token": "tok-123"], source: EnrichmentSender.pushTokenSource)
+        XCTAssertFalse(key.contains("tok-123"))
     }
 }

@@ -141,7 +141,7 @@ final class DeeplinklyTests: XCTestCase {
 
     /// The point of the whole exercise: a rejected event answers false and
     /// costs nothing. Before the facade, iOS validated nothing and every one of
-    /// these went to a production backend.
+    /// these went to a production service.
     func testARejectedEventNeverReachesTheNetwork() {
         Deeplinkly.initialize(apiKey: apiKey)
 

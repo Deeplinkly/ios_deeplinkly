@@ -22,7 +22,9 @@ enum DeeplinklyTestSupport {
     static let persistedKeys: [String] = [
         // DeepLinkQueue
         "dl_pending_resolve",
-        // RetryQueue (canonical key followed by the pre-migration iOS key)
+        // RetryQueue. Keychain-backed since 28 August 2026 and cleared below;
+        // both keys stay here because a device upgrading from an older build
+        // still has a plist copy to migrate out of.
         "dl_pending_retries", "sdk_retry_queue",
         // AttributionLevel
         "dl_attribution_level",
@@ -44,6 +46,10 @@ enum DeeplinklyTestSupport {
         // Deeplinkly (the facade owns the event sequence counter; it used to
         // be written inline by the plugin, which is why it was missing here)
         "dl_event_seq",
+        // ConsentStore
+        ConsentStore.storageKey,
+        // PushTokenStore
+        PushTokenStore.tokenKey, PushTokenStore.providerKey, PushTokenStore.installKey,
         // PasteboardHandler
         "deeplinkly_pasteboard_checked", "deeplinkly_check_pasteboard_on_install",
     ]
@@ -61,6 +67,18 @@ enum DeeplinklyTestSupport {
         where key.contains(enrichedLatchSuffix) {
             defaults.removeObject(forKey: key)
         }
+
+        // Keychain-backed and therefore untouched by the sweep above. The
+        // in-memory test store is process-wide, so without this the first test
+        // to call setUserData — or to queue a failed send — leaks into every
+        // test after it.
+        UserDataStore.purge()
+        RetryQueue.clear()
+
+        // Static and therefore process-wide: a suite that installs a recorder
+        // and does not remove it would have every later suite counting its
+        // registrations.
+        SkanRegistration.registrarForTesting = nil
 
         // Static caches that outlive UserDefaults clearing.
         DeviceProfile.invalidate()

@@ -14,7 +14,7 @@ let package = Package(
         .target(
             name: "Deeplinkly",
             path: "Sources/Deeplinkly",
-            exclude: ["Resources/IDFA"],
+            exclude: ["Resources/IDFA", "Resources/ConversionForwarding"],
             resources: [.process("Resources/PrivacyInfo.xcprivacy")]
         ),
         .testTarget(

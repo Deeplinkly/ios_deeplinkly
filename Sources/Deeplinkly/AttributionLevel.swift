@@ -11,7 +11,7 @@ import Foundation
 /// Ordering matters — each level is a strict subset of the one above it. Which
 /// keys each level permits is not decided here: it lives in `SignalCatalogue`,
 /// generated from `tool/signals.json` so this file, Android's
-/// `AttributionLevel.kt` and the backend cannot disagree about what a given
+/// `AttributionLevel.kt` and the service cannot disagree about what a given
 /// consent choice means.
 public enum AttributionLevel: String, CaseIterable {
     /// Everything the SDK collects. The default, and the pre-1.9.0 behaviour.
@@ -69,7 +69,7 @@ public enum AttributionLevel: String, CaseIterable {
     /// `EnrichmentSender` assembles on top of it.
     ///
     /// Every decision is delegated to `SignalCatalogue`, which is generated from
-    /// `tool/signals.json` and shared with Android and the backend. The two
+    /// `tool/signals.json` and shared with Android and the service. The two
     /// platforms previously kept hand-written key sets that had already drifted
     /// — Kotlin listed eleven high-entropy keys against this file's five — so
     /// the same consent choice meant different things per platform.

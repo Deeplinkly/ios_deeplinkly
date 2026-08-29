@@ -21,7 +21,7 @@ final class NetworkRequestTests: XCTestCase {
     // MARK: - Headers
 
     /// Every call carries the key as a bearer token and both identity headers —
-    /// the Django views read them off `request.headers`.
+    /// they are read off the request headers.
     func testEveryRequestCarriesAuthAndIdentityHeaders() {
         StubURLProtocol.stub(DomainConfig.resolveClick, .ok(["click_id": "c1"]))
         Prefs.setCustomUserId("user-1")
@@ -98,7 +98,7 @@ final class NetworkRequestTests: XCTestCase {
     }
 
     /// Attribution rides the **query string**, not the body: resolving by code
-    /// makes the backend create the ClickEvent, and `create_click_event` reads
+    /// makes the service create the a click record, and the resolve endpoint reads
     /// UTMs off `request.GET`. It never consults the POST body.
     func testAttributionTravelsOnTheQueryStringNotTheBody() {
         StubURLProtocol.stub(DomainConfig.resolveClick, .ok())
@@ -111,7 +111,7 @@ final class NetworkRequestTests: XCTestCase {
         XCTAssertNil(request?.body?["utm_source"], "attribution leaked into the body")
     }
 
-    /// The `+` fix, end to end: `URLComponents` leaves it unencoded and Django's
+    /// The `+` fix, end to end: `URLComponents` leaves it unencoded and the server's
     /// QueryDict decodes a bare `+` as a space, so the campaign name would
     /// arrive corrupted.
     func testPlusSignsSurviveTheRoundTrip() {
@@ -155,7 +155,7 @@ final class NetworkRequestTests: XCTestCase {
         XCTAssertEqual(resolveExpectingSuccess(clickId: "c1")?.count, 0)
     }
 
-    /// Non-2xx keeps the parsed body so callers can read the backend's ER_0xx
+    /// Non-2xx keeps the parsed body so callers can read the service's ER_0xx
     /// code and decide whether the failure is worth retrying.
     func testHttpFailureCarriesStatusAndParsedBody() {
         StubURLProtocol.stub(

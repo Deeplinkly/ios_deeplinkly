@@ -46,7 +46,7 @@ final class UserDataStoreTests: XCTestCase {
     }
 
     /// The whole reason clearing is not a delete. An absent key reads, at the
-    /// backend, as "not reported" and is skipped — so dropping the blob would
+    /// service, as "not reported" and is skipped — so dropping the blob would
     /// leave the row on our side holding the email forever. An empty value is
     /// what says "erase this".
     func testClearingTombstonesTheFieldsThatWereSet() {
@@ -64,7 +64,7 @@ final class UserDataStoreTests: XCTestCase {
             ])
     }
 
-    /// Nothing was ever set, so there is nothing to ask the backend to erase.
+    /// Nothing was ever set, so there is nothing to ask the service to erase.
     func testClearingAnEmptyStoreLeavesItEmpty() {
         UserDataStore.clear()
         XCTAssertTrue(UserDataStore.isEmpty())
@@ -94,8 +94,47 @@ final class UserDataStoreTests: XCTestCase {
     }
 
     func testDiscardsABlobItCannotParse() {
-        UserDefaults.standard.set("{not json", forKey: UserDataStore.storageKey)
+        Keychain.set(
+            "{not json", for: UserDataStore.storageKey,
+            accessibility: Keychain.thisDeviceOnly)
         XCTAssertTrue(UserDataStore.isEmpty())
+        XCTAssertNil(Keychain.get(UserDataStore.storageKey))
+    }
+
+    /// The values live in the Keychain, not the app container's plist.
+    ///
+    /// Asserted rather than assumed because the difference is invisible from
+    /// every other test in this file — `get`/`merge`/`clear` behave identically
+    /// either way, and the whole point of the move is what happens to a device
+    /// backup, which no unit test can observe.
+    func testIsStoredInTheKeychainAndNotInUserDefaults() {
+        UserDataStore.merge([DeeplinklyUserData.keyEmail: "ada@example.com"])
+
+        XCTAssertNotNil(Keychain.get(UserDataStore.storageKey))
+        XCTAssertNil(UserDefaults.standard.string(forKey: UserDataStore.storageKey))
+    }
+
+    /// A pre-release build wrote the blob to UserDefaults. Reading it must move
+    /// it, and must leave nothing behind — an abandoned copy would be the exact
+    /// plaintext this change exists to remove.
+    func testMigratesAPreReleasePayloadOutOfUserDefaults() {
+        UserDataStore.purge()
+        UserDefaults.standard.set(
+            #"{"user_email":"legacy@example.com"}"#, forKey: UserDataStore.storageKey)
+
+        XCTAssertEqual(UserDataStore.get()[DeeplinklyUserData.keyEmail], "legacy@example.com")
+        XCTAssertNil(UserDefaults.standard.string(forKey: UserDataStore.storageKey))
+        XCTAssertNotNil(Keychain.get(UserDataStore.storageKey))
+    }
+
+    /// The migration must carry a tombstone too. A pending erasure dropped on
+    /// the way to the keychain is an erasure the service never hears about.
+    func testMigrationCarriesAPendingTombstone() {
+        UserDataStore.purge()
+        UserDefaults.standard.set(
+            #"{"user_email":""}"#, forKey: UserDataStore.storageKey)
+
+        XCTAssertEqual(UserDataStore.get()[DeeplinklyUserData.keyEmail], "")
         XCTAssertNil(UserDefaults.standard.string(forKey: UserDataStore.storageKey))
     }
 

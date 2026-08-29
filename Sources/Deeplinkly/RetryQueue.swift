@@ -1,5 +1,42 @@
 import Foundation
 
+/// Payloads that failed to send, held until they can be retried.
+///
+/// ## Where this lives, and why it moved
+///
+/// The Keychain, under ``Keychain/thisDeviceOnly``, as one blob — not
+/// `UserDefaults`, which is where it lived until 28 August 2026.
+///
+/// A queued enrichment is the whole assembled payload, and since catalogue 9
+/// that payload carries whatever `setUserData` was given: email, phone, date of
+/// birth, postal address. ``UserDataStore`` moved those values to the Keychain
+/// precisely so they could not ride into a device backup and restore onto other
+/// hardware. Queueing the same values into a `UserDefaults` plist put them
+/// straight back into the store that decision was made to avoid — undoing it
+/// for up to the seven days an item may sit here, on the ordinary path of a
+/// send that failed because the device was briefly offline.
+///
+/// Stripping the user fields before queueing was the other way to close this,
+/// and it would have worked: the next enrichment re-reads them from storage, so
+/// nothing is lost. Keeping the payload whole was preferred, so the storage
+/// moved instead of the contents.
+///
+/// One Keychain item holding a JSON array, rather than one item per queued
+/// payload. Same reasoning as ``UserDataStore``: a single name is a single
+/// thing to remember in ``PrivacyData/reset()``, and fifty of them would be
+/// fifty chances to leave one behind.
+///
+/// ## What this costs
+///
+/// Keychain reads are slower than a plist read, and a full drain does one per
+/// item. At the fifty-item ceiling that is still milliseconds, off the main
+/// thread, and only when there is a backlog to clear.
+///
+/// The protection class is `AfterFirstUnlock`-based, so between a device boot
+/// and the user's first unlock this store is unreadable and unwritable. An app
+/// launched by a push in that window cannot queue a failed payload. The lost
+/// case is one enrichment that the next one re-sends from storage anyway, which
+/// is the same guarantee the discarded strip-before-queue approach rested on.
 enum RetryQueue {
     private static let key = "dl_pending_retries"
     private static let legacyKey = "sdk_retry_queue"
@@ -33,27 +70,65 @@ enum RetryQueue {
             // Close the opt-out race: consent may have changed while this
             // payload was being serialized.
             guard !TrackingPreferences.isTrackingDisabled() else { return }
-            UserDefaults.standard.set(queue, forKey: key)
+            write(queue)
         }
     }
 
     // Get all items
     static func items() -> [String] {
-        migrateLegacyQueueIfNeeded()
-        return (UserDefaults.standard.array(forKey: key) as? [String]) ?? []
+        migrateFromUserDefaultsIfNeeded()
+        guard let raw = Keychain.get(key),
+            let data = raw.data(using: .utf8),
+            let queue = try? JSONSerialization.jsonObject(with: data) as? [String]
+        else { return [] }
+        return queue
     }
 
-    /// Moves queues written by iOS SDK versions that predate cross-platform
-    /// key alignment. The canonical value wins if both keys exist: that state
-    /// means a previous migration wrote the new key but stopped before cleanup.
-    private static func migrateLegacyQueueIfNeeded() {
-        let defaults = UserDefaults.standard
-        guard let legacyQueue = defaults.object(forKey: legacyKey) else { return }
-
-        if defaults.object(forKey: key) == nil {
-            defaults.set(legacyQueue, forKey: key)
+    /// Replaces the stored queue.
+    ///
+    /// A write that fails leaves the previous contents in place rather than
+    /// truncating the queue, which is the safer half of the trade: a payload
+    /// re-sent once is better than a payload lost.
+    private static func write(_ queue: [String]) {
+        guard !queue.isEmpty else {
+            Keychain.delete(key)
+            return
         }
+        guard let data = try? JSONSerialization.data(withJSONObject: queue),
+            let json = String(data: data, encoding: .utf8)
+        else {
+            Logger.w("RetryQueue: could not serialize the queue, leaving it as it was")
+            return
+        }
+        if !Keychain.set(json, for: key, accessibility: Keychain.thisDeviceOnly) {
+            // Before first unlock, or a Keychain that refused the write. The
+            // payload is dropped rather than parked somewhere unprotected.
+            Logger.w("RetryQueue: could not persist the queue")
+        }
+    }
+
+    /// Moves a queue written before this store was the Keychain, and one
+    /// written under the pre-alignment key before that.
+    ///
+    /// Both are drained into the Keychain rather than discarded: these are
+    /// undelivered payloads, and an SDK upgrade is no reason to lose them. The
+    /// `UserDefaults` copies are removed either way — leaving them is what the
+    /// move was for.
+    private static func migrateFromUserDefaultsIfNeeded() {
+        let defaults = UserDefaults.standard
+        let carried = (defaults.array(forKey: key) as? [String])
+            ?? (defaults.array(forKey: legacyKey) as? [String])
+
+        // Clear the plists whether or not anything was carried over, so a
+        // half-finished migration cannot leave personal data behind.
+        defaults.removeObject(forKey: key)
         defaults.removeObject(forKey: legacyKey)
+
+        guard let carried = carried, !carried.isEmpty else { return }
+        // The Keychain wins if both exist: that means a previous migration
+        // already ran and these plist entries are its leftovers.
+        guard Keychain.get(key) == nil else { return }
+        write(carried)
     }
 
     // Remove a specific item
@@ -61,11 +136,12 @@ enum RetryQueue {
         var queue = items()
         if let idx = queue.firstIndex(of: s) {
             queue.remove(at: idx)
-            UserDefaults.standard.set(queue, forKey: key)
+            write(queue)
         }
     }
 
     static func clear() {
+        Keychain.delete(key)
         UserDefaults.standard.removeObject(forKey: key)
         UserDefaults.standard.removeObject(forKey: legacyKey)
     }

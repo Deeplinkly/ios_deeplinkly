@@ -128,7 +128,7 @@ final class AttributionLevelTests: XCTestCase {
     // MARK: - Raw values
 
     /// The raw values are the wire format — they are stored in `UserDefaults`,
-    /// read from Info.plist, and sent as `attribution_level`. The backend is
+    /// read from Info.plist, and sent as `attribution_level`. The service is
     /// production, so renaming one is a breaking change.
     func testRawValuesAreStable() {
         XCTAssertEqual(AttributionLevel.full.rawValue, "full")
