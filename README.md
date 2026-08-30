@@ -35,7 +35,7 @@ Select the `Deeplinkly` product and add it to your app target. For a
 dependencies: [
     .package(
         url: "https://github.com/Deeplinkly/ios_deeplinkly.git",
-        from: "1.0.1"
+        from: "1.2.1"
     )
 ]
 ```
@@ -46,7 +46,7 @@ target that imports the SDK.
 ### CocoaPods
 
 ```ruby
-pod 'Deeplinkly', '~> 1.0'
+pod 'Deeplinkly', '~> 1.2'
 ```
 
 Run `pod install`, open the generated workspace, and import `Deeplinkly` in
@@ -171,6 +171,95 @@ Deeplinkly.setUserId(nil) // clear the custom user ID
 `getInstallAttribution()` is first-touch data. It is empty until the first link
 resolves and is not overwritten by later links.
 
+### User data
+
+The fields a conversion is matched on once it reaches Meta's Conversions API or
+Google's enhanced conversions:
+
+```swift
+let stored = Deeplinkly.setUserData(
+    userId: "user_123",
+    email: "ada@example.com",
+    phoneNumber: "+441234567890",
+    firstName: "Ada",
+    lastName: "Lovelace",
+    city: "London",
+    country: "GB"
+)   // false if any field was malformed, in which case nothing was stored
+```
+
+Every field is optional and each call **merges**, so you can supply an email at
+sign-up and an address at checkout. A malformed field rejects the whole call —
+nothing is stored — so you never have to guess which of the values took.
+
+Constraints, enforced before anything is stored: `dateOfBirth` is `YYYY-MM-DD`;
+`gender` is `"m"` or `"f"`, the only two values Meta's `ge` accepts, and
+anything else is refused rather than coerced; `country` is ISO-3166-1 alpha-2.
+Per-field maximum lengths are listed in [SIGNALS.md](docs/SIGNALS.md).
+
+Supply only what your own privacy policy and consent flow allow — the SDK
+cannot know what you told your users. These fields survive a `reduced`
+downgrade, because the attribution levels gate what the SDK *observes* about a
+device and an email someone typed into your app is not an observation. At
+`none` nothing is sent.
+
+`customData` carries identifiers Deeplinkly does not name — typically your own
+product-analytics ids:
+
+```swift
+Deeplinkly.setUserData(
+    userId: "user_123",
+    customData: [
+        "mixpanel_distinct_id": "d-8837",
+        "clevertap_id": "ct-4412",
+    ]
+)
+```
+
+It exists because your binary is frozen for its whole release cycle while the
+list of identifiers you need is not. Bounded at 10 entries, 64-character keys
+and 256-character values; anything larger rejects the whole call.
+
+To erase everything recorded — on sign-out, or when someone withdraws consent:
+
+```swift
+Deeplinkly.clearUserData()
+```
+
+This is not merely "stop sending": the next enrichment reports each
+previously-set field as empty, which the service reads as "null this column".
+The erasure is re-sent until it is delivered, so calling it on a device that is
+offline still takes effect once it is not. To clear only the id, call
+`setUserId(nil)`.
+
+### Purchases
+
+```swift
+Deeplinkly.logPurchase(
+    value: 49.99,
+    currency: "USD",
+    orderId: "ord_42",
+    quantity: 1,
+    productId: "sku_9"
+) { accepted in /* optional */ }
+```
+
+A typed wrapper over `logEvent` rather than a separate pipeline: it sends the
+event named `purchase` with `value` and `currency` set, and everything true of
+`logEvent` — the retry queue, the parameter limits, the device block — is true
+of this too.
+
+It exists because those two keys have to be spelled the same way by every
+caller. Meta's Conversions API wants `custom_data.value` and `currency`; Google
+wants a conversion value and currency. This is the one spelling both can be
+built from.
+
+Rejected, sending nothing, if the value is negative or not finite (a refund is a
+different event, not a negative purchase), the currency is not three letters,
+the quantity is negative, or `parameters` contains any of the keys this method
+sets. `orderId` is worth passing: it is what Google deduplicates conversions on,
+and how you reconcile a forwarded conversion against your own records.
+
 ### Event logging
 
 ```swift
@@ -240,6 +329,29 @@ deletes pending reporting retries, and skips its automatic pasteboard read.
 Deep links still resolve and deliver, but functional requests omit the stable
 Deeplinkly ID and custom user ID. The setting persists across launches and
 takes precedence over the selected attribution level.
+
+To hash the identifying fields on the device before they are sent:
+
+```swift
+Deeplinkly.setPIIHashingEnabled(true)
+Deeplinkly.isPIIHashingEnabled()   // off unless you turned it on
+```
+
+Off by default. With it on, email, phone, first and last name are SHA-256 hashed
+on the device and plaintext never reaches Deeplinkly. The state is reported as
+`pii_hashing_enabled` so the service knows whether the columns hold digests.
+
+Only those four are hashed. Gender, country and date of birth are not: their
+value ranges are small enough that a digest is reversed by enumerating them, so
+hashing them would be protection in appearance only.
+
+**It costs attribution quality, and the trade is yours.** A digest is computed
+once, under one normalisation, and advertising destinations disagree about phone
+formatting — so a conversion forwarded to a destination whose rules differ will
+not match, and the service can no longer re-derive per destination because the
+value it would need is gone. Enable it when a compliance requirement says
+plaintext must not reach a processor, not by default. Hashing happens at send
+time rather than in the store, so the switch is reversible.
 
 For a deletion request:
 
